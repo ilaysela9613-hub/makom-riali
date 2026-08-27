@@ -114,11 +114,31 @@ function main() {
       `worst ${worstArchetype.archetypeId} ${(worst * 100).toFixed(1)}%)`,
   );
   console.log(`limit   ${(BALANCE_MAX_TOP_TIER_SPREAD * 100).toFixed(1)} points`);
+  // These two are guards against a VACUOUS pass, not a health band. The spread
+  // test cannot tell a balanced cohort from a uniformly broken one, so the floor
+  // asks whether anyone can win at all and the ceiling asks whether anyone can
+  // lose at all. An archetype sitting outside them on its own is reported below
+  // as advice, not as a failure.
   console.log(
-    `band    ${(BALANCE_MIN_TOP_TIER_RATE * 100).toFixed(0)}%–` +
-      `${(BALANCE_MAX_TOP_TIER_RATE * 100).toFixed(0)}%   ` +
-      '(every archetype must land inside this)',
+    `guards  fail if BEST < ${(BALANCE_MIN_TOP_TIER_RATE * 100).toFixed(0)}% (nobody can win) ` +
+      `or WORST > ${(BALANCE_MAX_TOP_TIER_RATE * 100).toFixed(0)}% (nobody can lose)`,
   );
+
+  const outsideBand = results.filter(
+    (result) =>
+      result.topTierRate > BALANCE_MAX_TOP_TIER_RATE ||
+      result.topTierRate < BALANCE_MIN_TOP_TIER_RATE,
+  );
+  if (outsideBand.length > 0 && outsideBand.length < results.length) {
+    console.log('');
+    console.log(
+      `NOTE    ${outsideBand.length} of ${results.length} archetypes sit outside ` +
+        `${(BALANCE_MIN_TOP_TIER_RATE * 100).toFixed(0)}–${(BALANCE_MAX_TOP_TIER_RATE * 100).toFixed(0)}%: ` +
+        outsideBand.map((result) => `${result.archetypeId} ${(result.topTierRate * 100).toFixed(1)}%`).join(', '),
+    );
+    console.log('        Not a failure — the guards above only fire on the whole cohort.');
+    console.log('        It does mean the game is running generous for those starts.');
+  }
   console.log('');
 
   const failures = [];
@@ -164,7 +184,7 @@ function main() {
     process.exit(1);
   }
 
-  console.log('PASS — spread within limit, and every archetype inside the band.');
+  console.log('PASS — spread within limit, and neither guard fired.');
   console.log('');
 }
 

@@ -100,6 +100,13 @@ export function createRun(seed, archetypeId) {
     partyTurns: 0,
     slot: null,
 
+    // Offers open RIGHT NOW, each { partyId, slot, offeredOnTurn }. Answered in
+    // the turn they arrive; anything left unanswered lapses into declinedParties.
+    offers: [],
+    // Parties that offered and were turned down, or whose offer lapsed. They do
+    // not come back — this is what makes an offer a decision.
+    declinedParties: [],
+
     patron: STARTING_PATRON,
     patronTurns: 0,
     // Set when a patron is taken: { cardId, turn } — the favour comes due.

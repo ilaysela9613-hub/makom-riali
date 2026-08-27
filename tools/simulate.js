@@ -22,8 +22,9 @@ import {
   isRunOver,
   eligiblePatrons,
   choosePatron,
-  slotTable,
-  joinParty,
+  acceptOffer,
+  declineOffers,
+  poll,
   runElection,
   createRng,
 } from '../src/engine/index.js';
@@ -46,8 +47,12 @@ const DEFAULT_POLICY = {
   foundChance: 0.2,
   /** Per-turn chance of taking a patron, when any is eligible. */
   patronChance: 0.25,
-  /** Per-turn chance of trying for a slot, when unaffiliated. */
-  joinChance: 0.3,
+  /**
+   * Chance of accepting an offer the policy judges realistic — a slot inside
+   * that party's projected seat count. An unrealistic offer is always declined.
+   * Offers cannot be deferred: whatever is not accepted this turn is gone.
+   */
+  acceptChance: 0.8,
 };
 
 /** A name for a player-founded list. Never shown to a player; simulator only. */
@@ -63,7 +68,7 @@ const SIMULATED_PARTY_NAME = 'רשימה חדשה';
  *             founded, joinedPartyId, patron, cardsDrawn, emptyTurns, state }}
  */
 export function playRun(seed, archetypeId, policy = {}) {
-  const { foundChance, patronChance, joinChance } = { ...DEFAULT_POLICY, ...policy };
+  const { foundChance, patronChance, acceptChance } = { ...DEFAULT_POLICY, ...policy };
 
   // A separate stream, so policy coin-flips never disturb the run's own cursor
   // and a given seed always produces the same run for a given policy.
@@ -86,6 +91,8 @@ export function playRun(seed, archetypeId, policy = {}) {
 
   let cardsDrawn = 0;
   let emptyTurns = 0;
+  let offersReceived = 0;
+  let offersAccepted = 0;
 
   while (!isRunOver(state)) {
     const available = eligiblePatrons(state);
@@ -93,13 +100,28 @@ export function playRun(seed, archetypeId, policy = {}) {
       state = choosePatron(state, decisions.pick(available).id);
     }
 
-    if (!state.party && !state.ownParty && decisions.chance(joinChance)) {
-      const offers = slotTable(state).filter(
-        (row) => row.partyId !== OWN_PARTY_ID && row.reachable && decisions.chance(row.offerChance),
+    // Answer whatever is on the table. Nothing carries to the next turn.
+    if (state.offers.length > 0) {
+      offersReceived += state.offers.length;
+      const projected = poll(state);
+      const worthTaking = state.offers.filter(
+        (offer) => offer.slot <= (projected[offer.partyId] ?? 0),
       );
-      if (offers.length > 0) {
-        const offer = decisions.pick(offers);
-        state = joinParty(state, offer.partyId, offer.slot);
+      // Best offer on the table is the one with the most room to spare between
+      // the slot and the party's projected seats.
+      const best = worthTaking.reduce(
+        (chosen, offer) =>
+          chosen === null ||
+          projected[offer.partyId] - offer.slot > projected[chosen.partyId] - chosen.slot
+            ? offer
+            : chosen,
+        null,
+      );
+      if (best && decisions.chance(acceptChance)) {
+        state = acceptOffer(state, best.partyId);
+        offersAccepted += 1;
+      } else {
+        state = declineOffers(state);
       }
     }
 
@@ -130,6 +152,8 @@ export function playRun(seed, archetypeId, policy = {}) {
     slot: state.slot,
     cardsDrawn,
     emptyTurns,
+    offersReceived,
+    offersAccepted,
     state: outcome.state,
   };
 }
@@ -181,6 +205,8 @@ function main() {
   let electedCount = 0;
   let cardsDrawnTotal = 0;
   let emptyTurnsTotal = 0;
+  let offersReceivedTotal = 0;
+  let noOfferRuns = 0;
   let ownPartySeatTotal = 0;
   const patronCounts = new Map();
 
@@ -204,6 +230,8 @@ function main() {
     if (result.playerElected) electedCount += 1;
     cardsDrawnTotal += result.cardsDrawn;
     emptyTurnsTotal += result.emptyTurns;
+    offersReceivedTotal += result.offersReceived;
+    if (result.offersReceived === 0 && !result.founded) noOfferRuns += 1;
   }
 
   console.log('');
@@ -248,6 +276,11 @@ function main() {
   console.log(`  elected                ${formatPercentage(electedCount, runs).padStart(6)}`);
   console.log(`  founded own list       ${formatPercentage(foundedCount, runs).padStart(6)}`);
   console.log(`  joined a party         ${formatPercentage(joinedCount, runs).padStart(6)}`);
+  console.log(`  mean offers received   ${(offersReceivedTotal / runs).toFixed(1).padStart(6)}`);
+  console.log(
+    `  never offered a slot   ${formatPercentage(noOfferRuns, runs).padStart(6)}` +
+      '   <- ran the whole way and nobody wanted them',
+  );
   console.log(`  mean cards drawn       ${(cardsDrawnTotal / runs).toFixed(1).padStart(6)}`);
   console.log(
     `  mean turns with no card${(emptyTurnsTotal / runs).toFixed(1).padStart(6)}` +

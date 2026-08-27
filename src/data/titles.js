@@ -15,7 +15,9 @@ import {
   PRIME_MINISTER_MAX_SLOT,
   PRIME_MINISTER_MIN_SEATS,
   SENIOR_MINISTER_MAX_SLOT,
+  SENIOR_MINISTER_MIN_SEATS,
   MINISTER_WITHOUT_PORTFOLIO_MAX_SLOT,
+  MINISTER_WITHOUT_PORTFOLIO_MIN_SEATS,
   COMMITTEE_CHAIR_MAX_SLOT,
 } from './tuning.js';
 
@@ -47,16 +49,25 @@ export const END_TITLES = [
     matches: (outcome) =>
       outcome.hasOwnParty && outcome.playerElected && outcome.playerSeats === 1,
   },
+  // A slot number on its own is not an achievement. Slot 4 on a seven-seat list
+  // is an easier thing to get than slot 12 on the largest party in the Knesset,
+  // and a title that cannot tell them apart hands out ministries to
+  // backbenchers. Every ministerial title is gated on the size of the list too.
   {
     id: 'senior_minister',
     label: 'שר/ה בכיר/ה',
-    matches: (outcome) => outcome.playerElected && outcome.playerSlot <= SENIOR_MINISTER_MAX_SLOT,
+    matches: (outcome) =>
+      outcome.playerElected &&
+      outcome.playerSlot <= SENIOR_MINISTER_MAX_SLOT &&
+      outcome.playerSeats >= SENIOR_MINISTER_MIN_SEATS,
   },
   {
     id: 'minister_without_portfolio',
     label: 'שר/ה ללא תיק',
     matches: (outcome) =>
-      outcome.playerElected && outcome.playerSlot <= MINISTER_WITHOUT_PORTFOLIO_MAX_SLOT,
+      outcome.playerElected &&
+      outcome.playerSlot <= MINISTER_WITHOUT_PORTFOLIO_MAX_SLOT &&
+      outcome.playerSeats >= MINISTER_WITHOUT_PORTFOLIO_MIN_SEATS,
   },
   {
     id: 'committee_chair',

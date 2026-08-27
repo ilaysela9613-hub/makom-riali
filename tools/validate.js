@@ -341,6 +341,13 @@ function checkCard(file, card, seenIds) {
   if (!card.title) error(file, card.id, 'card', 'missing `title`');
   if (!card.text) error(file, card.id, 'card', 'missing `text`');
 
+  if (card.placeholder !== undefined && typeof card.placeholder !== 'boolean') {
+    error(
+      file, card.id, 'card',
+      `\`placeholder\` must be true or false, got ${JSON.stringify(card.placeholder)}`,
+    );
+  }
+
   if (!Array.isArray(card.options)) {
     error(file, card.id, 'card', '`options` must be an array — every card needs at least 2 options');
   } else {
@@ -401,6 +408,8 @@ function checkPatronObligations() {
 
 const seenIds = new Map();
 let cardCount = 0;
+let placeholderCount = 0;
+const placeholdersByFile = new Map();
 
 for (const entry of CARD_FILES) {
   const file = CARD_DIRECTORY + entry.file;
@@ -410,6 +419,10 @@ for (const entry of CARD_FILES) {
   }
   for (const card of entry.cards) {
     cardCount += 1;
+    if (card.placeholder === true) {
+      placeholderCount += 1;
+      placeholdersByFile.set(entry.file, (placeholdersByFile.get(entry.file) ?? 0) + 1);
+    }
     checkCard(file, card, seenIds);
   }
 }
@@ -446,6 +459,25 @@ console.log(
     `${errors.length} error${errors.length === 1 ? '' : 's'} · ` +
     `${warnings.length} warning${warnings.length === 1 ? '' : 's'}`,
 );
+
+// Generated placeholder content still awaiting a rewrite. Reported on every
+// run, never a warning and never an error — it is a progress bar, not a defect.
+if (placeholderCount > 0) {
+  const written = cardCount - placeholderCount;
+  const barWidth = 24;
+  const filled = Math.round((written / cardCount) * barWidth);
+  console.log('');
+  console.log(
+    `PLACEHOLDERS  ${'█'.repeat(filled)}${'·'.repeat(barWidth - filled)}  ` +
+      `${written}/${cardCount} rewritten · ${placeholderCount} to go`,
+  );
+  for (const [file, count] of [...placeholdersByFile].sort((left, right) => right[1] - left[1])) {
+    console.log(`  ${String(count).padStart(3)}  ${file}`);
+  }
+} else if (cardCount > 0) {
+  console.log('');
+  console.log('PLACEHOLDERS  none — every card is yours.');
+}
 console.log('');
 
 process.exit(errors.length > 0 ? 1 : 0);

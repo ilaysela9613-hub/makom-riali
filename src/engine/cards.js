@@ -23,6 +23,7 @@ import {
 import { applySegmentDeltas } from './segments.js';
 import { currentParty } from './party.js';
 import { amplifyCapitalDeltas, applyPatronUpkeep, dueObligationCardId } from './patron.js';
+import { lapseUnansweredOffers, openOffers } from './slots.js';
 
 /** The only keys a card's `requires` block may use. The validator imports this. */
 export const REQUIRES_KEYS = [
@@ -280,10 +281,15 @@ export function applyOption(state, cardId, optionIndex) {
 }
 
 /**
- * Closes the turn: patron upkeep and ideology pull, then the clock.
+ * Closes the turn: patron upkeep and ideology pull, any offer left on the table
+ * lapses, the clock advances, and the new turn's offers open.
+ *
  * Lives here because the turn *is* the card cycle (SPEC §7.1), and because
  * state.js cannot import patron.js without a cycle.
  */
 export function endTurn(state) {
-  return advanceTurn(applyPatronUpkeep(state));
+  let next = applyPatronUpkeep(state);
+  next = lapseUnansweredOffers(next);
+  next = advanceTurn(next);
+  return openOffers(next);
 }

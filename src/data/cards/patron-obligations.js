@@ -20,6 +20,7 @@ export default [
     act: 3,
     weight: 1.0,
     camp: 'neutral',
+    placeholder: true,
 
     requires: {
       patron: ['donor'],

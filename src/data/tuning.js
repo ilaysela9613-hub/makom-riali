@@ -174,6 +174,31 @@ export const SLOT_CAPITAL_WEIGHTS = {
 export const BEST_POSSIBLE_SLOT = 1;
 
 // ---------------------------------------------------------------------------
+// Offers — scarcity in the career ladder
+//
+// `slotTable` says what you are WORTH everywhere. It is a read, not a door.
+// Getting onto a list requires an actual offer, and offers are scarce:
+//
+//   - every party rolls exactly ONCE per run, on a turn fixed by the seed
+//   - the roll is against offerChance, using your capital ON THAT TURN, so an
+//     early offer is a worse offer
+//   - your slot is fixed at the moment you accept
+//   - an offer you decline, or leave unanswered, closes that party for the run
+//
+// Without this the player is handed a realistic slot on turn 1 of every run and
+// keeps it on the table for 24 turns, which is 24 free chances at the same door.
+// ---------------------------------------------------------------------------
+
+/** No offers before this turn — you are not on anyone's radar yet. */
+export const OFFER_FIRST_TURN = 2;
+
+/** Lists are submitted. After this turn no offer arrives and your slot is locked. */
+export const LIST_SUBMISSION_TURN = 16;
+
+/** Leaving a list you already accepted a place on. */
+export const PARTY_SWITCH_CREDIBILITY_COST = 8;
+
+// ---------------------------------------------------------------------------
 // Own party
 // ---------------------------------------------------------------------------
 
@@ -224,6 +249,12 @@ export const SENIOR_MINISTER_MAX_SLOT = 5;
 /** A minister, so it outranks a committee chair — who is an MK, not a minister. */
 export const MINISTER_WITHOUT_PORTFOLIO_MAX_SLOT = 8;
 export const COMMITTEE_CHAIR_MAX_SLOT = 12;
+
+// Ministerial titles are gated on the size of the list as well as the slot.
+// Without this, slot 4 on a seven-seat list scores the same as slot 4 on the
+// largest party in the Knesset, and almost every run ends in a ministry.
+export const SENIOR_MINISTER_MIN_SEATS = 10;
+export const MINISTER_WITHOUT_PORTFOLIO_MIN_SEATS = 6;
 
 /**
  * A party this size or larger can plausibly put its leader in the chair.

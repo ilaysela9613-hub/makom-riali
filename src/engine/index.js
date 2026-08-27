@@ -50,7 +50,17 @@ export {
 // Reads the HUD needs. All derived, none stored.
 // ---------------------------------------------------------------------------
 
-export { offerChance, slotValue, bestReachableSlot } from './slots.js';
+export {
+  offerChance,
+  slotValue,
+  bestReachableSlot,
+  acceptOffer,
+  declineOffers,
+  offersForTurn,
+  offerRollTurn,
+  isListSubmissionClosed,
+  hasDeclinedParty,
+} from './slots.js';
 export { currentPatron, patronById } from './patron.js';
 export { cardById, allCards, eligibleCards, trailingCampStreak } from './cards.js';
 export { createRng } from './rng.js';

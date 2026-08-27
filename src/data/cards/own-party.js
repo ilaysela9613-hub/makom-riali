@@ -12,6 +12,7 @@ export default [
     act: 3,
     weight: 1.4,
     camp: 'neutral',
+    placeholder: true,
 
     requires: {
       ownParty: true,
