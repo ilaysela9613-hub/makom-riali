@@ -60,7 +60,11 @@ export default {
     blurb: 'הוצאת שלושה מפעלים לשביתה וסגרת הסכם קיבוצי שאיש לא האמין בו. אתה יודע לספור קולות באולם.',
     axes: { security: -0.1, religion: -0.2, economy: -0.8, rule_of_law: -0.2 },
     posture: 'anti_incumbent_only',
-    capital: { popularity: 22, party_standing: 58, credibility: 56, resources: 24 },
+    // Still the machine politician — highest standing of the six — but no longer
+    // the only archetype that is bottom-quartile on popularity AND resources at
+    // once. Slot value weights popularity at 0.40, so that pairing left this
+    // start unable to convert its standing into a realistic seat. Same 160 total.
+    capital: { popularity: 32, party_standing: 46, credibility: 56, resources: 26 },
     affinity: { periphery_general: 0.6, traditional_mizrahi: 0.4, secular_center: 0.1 },
     flags: [],
   },

@@ -22,9 +22,14 @@ import {
   WARN_CAPITAL_METERS_PER_OPTION,
   WARN_UNGATED_FROM_ACT,
   OWN_PARTY_TIER,
+  BRANCHES_PER_GAMBLE,
+  BRANCH_CHANCE_TOTAL,
+  DEAD_END_TARGET_RATE,
 } from '../src/data/tuning.js';
 import { AXIS_KEYS, CAPITAL_KEYS, SEGMENT_KEYS } from '../src/engine/state.js';
 import { REQUIRES_KEYS, CAMPS } from '../src/engine/cards.js';
+import { INTEGRITY_VALUES } from '../src/engine/credibility.js';
+import { PATRON_KINDS, BETRAYAL_CARD_ID, bindingDirections } from '../src/engine/patron.js';
 
 const CARD_DIRECTORY = 'src/data/cards/';
 
@@ -124,6 +129,14 @@ function checkDeltaBlock(file, cardId, location, block, kind, knownKeys, limit) 
     touched += 1;
   }
   return touched;
+}
+
+/** Readability counts, for the warnings. Errors are checked separately. */
+function countTouched(effects) {
+  return {
+    segmentsTouched: Object.keys(effects.segments ?? {}).length,
+    capitalTouched: Object.keys(effects.capital ?? {}).length,
+  };
 }
 
 function checkEffectBlock(file, cardId, location, effects) {
@@ -255,32 +268,96 @@ function checkOption(file, card, option, optionIndex) {
   }
 
   if (!option.label) error(file, card.id, location, 'missing `label` — every option needs one');
-  if (!option.pill) {
+
+  // An option is EXACTLY one of two shapes. There is no third, and no hybrid.
+  const isGambleOption = option.branches !== undefined;
+  const isCertainOption = option.certainText !== undefined;
+
+  if (isGambleOption && isCertainOption) {
     error(
       file, card.id, location,
-      'missing `pill` — the player must be able to read the mechanical direction of every option',
+      'has both `certainText` and `branches` — an option is one or the other, never both',
+    );
+  } else if (!isGambleOption && !isCertainOption) {
+    error(
+      file, card.id, location,
+      'has neither `certainText` nor `branches` — every option must state a certain result or offer two branches',
     );
   }
 
-  const { segmentsTouched, capitalTouched } = checkEffectBlock(file, card.id, location, option);
-
-  if (option.risk !== undefined) {
-    if (typeof option.risk !== 'number' || option.risk < 0 || option.risk > 1) {
-      error(file, card.id, location, `\`risk\` must be a number in 0…1, got ${JSON.stringify(option.risk)}`);
-    }
-    if (!option.onFail) {
-      error(
-        file, card.id, location,
-        'has `risk` but no `onFail` — a gamble the player cannot lose is not a gamble',
-      );
-    }
+  if (option.pill !== undefined) {
+    error(file, card.id, location, '`pill` was removed — state the result in `certainText` or in each branch');
+  }
+  if (option.risk !== undefined || option.onFail !== undefined) {
+    error(
+      file, card.id, location,
+      '`risk`/`onFail` were replaced by `branches` — two branches with `chance` and `text`',
+    );
   }
 
-  if (option.onFail) {
-    if (option.risk === undefined) {
-      error(file, card.id, location, 'has `onFail` but no `risk` — it can never fire');
+  if (isCertainOption) {
+    if (typeof option.certainText !== 'string' || option.certainText.length === 0) {
+      error(file, card.id, location, '`certainText` must be a non-empty string');
     }
-    checkEffectBlock(file, card.id, `${location}.onFail`, option.onFail);
+    checkEffectBlock(file, card.id, location, option);
+  }
+
+  if (isGambleOption) {
+    if (!Array.isArray(option.branches)) {
+      error(file, card.id, location, '`branches` must be an array');
+      return;
+    }
+    if (option.branches.length !== BRANCHES_PER_GAMBLE) {
+      error(
+        file, card.id, location,
+        `has ${option.branches.length} branches — a gamble has exactly ${BRANCHES_PER_GAMBLE}`,
+      );
+    }
+
+    const chanceTotal = option.branches.reduce(
+      (sum, branch) => sum + (typeof branch?.chance === 'number' ? branch.chance : 0),
+      0,
+    );
+    if (chanceTotal !== BRANCH_CHANCE_TOTAL) {
+      error(
+        file, card.id, location,
+        `branch chances sum to ${chanceTotal}, not ${BRANCH_CHANCE_TOTAL} — the player is being shown odds that do not add up`,
+      );
+    }
+
+    // Effects belong to the branches, never to the option around them.
+    for (const effectKey of ['capital', 'segments', 'axes', 'flags']) {
+      if (option[effectKey] !== undefined) {
+        error(
+          file, card.id, location,
+          `a gamble carries \`${effectKey}\` on its branches, not on the option`,
+        );
+      }
+    }
+
+    option.branches.forEach((branch, branchIndex) => {
+      const branchLocation = `${location} branch ${branchIndex + 1}`;
+      if (typeof branch !== 'object' || branch === null) {
+        error(file, card.id, branchLocation, 'branch must be an object');
+        return;
+      }
+      if (typeof branch.chance !== 'number' || branch.chance <= 0 || branch.chance >= BRANCH_CHANCE_TOTAL) {
+        error(
+          file, card.id, branchLocation,
+          `\`chance\` is ${JSON.stringify(branch.chance)} — must be a number between 1 and ${BRANCH_CHANCE_TOTAL - 1}`,
+        );
+      }
+      if (typeof branch.text !== 'string' || branch.text.length === 0) {
+        error(file, card.id, branchLocation, '`text` must be a non-empty string — it is what the player reads before choosing');
+      }
+      if (branch.endsRun !== undefined && branch.endsRun !== true && typeof branch.endsRun !== 'string') {
+        error(
+          file, card.id, branchLocation,
+          '`endsRun` must be true, or a string naming the cause',
+        );
+      }
+      checkEffectBlock(file, card.id, branchLocation, branch);
+    });
   }
 
   for (const cardId of option.unlocks ?? []) {
@@ -291,6 +368,10 @@ function checkOption(file, card, option, optionIndex) {
       );
     }
   }
+
+  const { segmentsTouched, capitalTouched } = isCertainOption
+    ? countTouched(option)
+    : { segmentsTouched: 0, capitalTouched: 0 };
 
   if (segmentsTouched > WARN_SEGMENTS_PER_OPTION) {
     warn(
@@ -362,6 +443,23 @@ function checkCard(file, card, seenIds) {
     card.options.forEach((option, optionIndex) => checkOption(file, card, option, optionIndex));
   }
 
+  // Two options on one card declaring the SAME position are not a choice — the
+  // player cannot avoid the stance, so it should sit on the card, not an option.
+  const stanceDirections = new Map();
+  for (const [optionIndex, option] of (card.options ?? []).entries()) {
+    if (!option?.stance?.axis || !option.stance.direction) continue;
+    const signature = `${option.stance.axis} ${option.stance.direction > 0 ? '+1' : '-1'}`;
+    if (stanceDirections.has(signature)) {
+      warn(
+        file, card.id, `option ${optionIndex + 1}`,
+        `takes the same stance as option ${stanceDirections.get(signature) + 1} (${signature}) — ` +
+          'if every option declares it, it is not a choice the player is making',
+      );
+    } else {
+      stanceDirections.set(signature, optionIndex);
+    }
+  }
+
   for (const cardId of card.excludes ?? []) {
     if (!ALL_CARD_IDS.has(cardId)) {
       error(
@@ -389,16 +487,67 @@ const ALL_CARD_IDS = new Set(
   CARD_FILES.flatMap((entry) => entry.cards.map((card) => card.id).filter(Boolean)),
 );
 
-function checkPatronObligations() {
+function checkPatrons() {
+  const file = 'src/data/patrons.js';
+
   for (const patron of Object.values(PATRONS)) {
-    const cardId = patron.obligation?.cardId;
-    if (!cardId) continue;
-    if (!ALL_CARD_IDS.has(cardId)) {
-      warn(
-        'src/data/patrons.js', patron.id, 'obligation',
-        `obligation card "${cardId}" does not exist yet — the favour will silently never come due`,
-      );
+    if (!PATRON_KINDS.includes(patron.kind)) {
+      error(file, patron.id, 'kind', unknownKeyMessage('patron kind', String(patron.kind), PATRON_KINDS));
     }
+
+    for (const axisKey of patron.bindingAxes ?? []) {
+      if (!AXIS_KEYS.includes(axisKey)) {
+        error(file, patron.id, 'bindingAxes', unknownKeyMessage('axis', axisKey, AXIS_KEYS));
+      }
+    }
+
+    if (patron.kind === 'gatekeeper') {
+      if (!patron.party) {
+        error(file, patron.id, 'party', 'a gatekeeper must name the party it seats you on');
+      } else if (!PARTIES[patron.party]) {
+        error(
+          file, patron.id, 'party',
+          `names party "${patron.party}", which is not on the roster in data/parties.js`,
+        );
+      }
+      if (patron.headStart) {
+        warn(file, patron.id, 'headStart', 'a gatekeeper gives a seat, not a head start — this is ignored');
+      }
+    }
+
+    if (patron.kind === 'sponsor') {
+      if (patron.party) {
+        error(file, patron.id, 'party', 'a sponsor has no party — set it to null');
+      }
+      for (const axisKey of patron.bindingAxes ?? []) {
+        if (patron.agendaAxes?.[axisKey] !== 1 && patron.agendaAxes?.[axisKey] !== -1) {
+          error(
+            file, patron.id, 'agendaAxes',
+            `binds "${axisKey}" but agendaAxes gives no direction for it — a sponsor has no party to read one from`,
+          );
+        }
+      }
+    }
+
+    // Every binding axis must resolve to a real direction, or the patron binds
+    // the player to nothing and the whole deal is silently free.
+    const directions = bindingDirections(patron);
+    for (const axisKey of patron.bindingAxes ?? []) {
+      if (directions[axisKey] !== 1 && directions[axisKey] !== -1) {
+        error(file, patron.id, 'bindingAxes', `"${axisKey}" resolves to no direction`);
+      }
+    }
+
+    if (!patron.agendaText) {
+      warn(file, patron.id, 'agendaText', 'no agenda text — the player is being bound without being told to what');
+    }
+  }
+
+  if (!ALL_CARD_IDS.has(BETRAYAL_CARD_ID)) {
+    error(
+      'src/data/cards/', BETRAYAL_CARD_ID, 'betrayal',
+      'the betrayal card is missing — patrons can never turn on the player',
+    );
   }
 }
 
@@ -409,6 +558,10 @@ function checkPatronObligations() {
 const seenIds = new Map();
 let cardCount = 0;
 let placeholderCount = 0;
+let branchCount = 0;
+let deadEndCount = 0;
+let systemBranchCount = 0;
+let systemDeadEndCount = 0;
 const placeholdersByFile = new Map();
 
 for (const entry of CARD_FILES) {
@@ -423,11 +576,25 @@ for (const entry of CARD_FILES) {
       placeholderCount += 1;
       placeholdersByFile.set(entry.file, (placeholdersByFile.get(entry.file) ?? 0) + 1);
     }
+    for (const option of Array.isArray(card.options) ? card.options : []) {
+      for (const branch of option?.branches ?? []) {
+        // The betrayal card is engine-scheduled system content, not part of the
+        // authored deck, and its run-ender fires at a rate the engine controls.
+        // Budgeting it against DEAD_END_TARGET_RATE would be double-counting.
+        if (card.id === BETRAYAL_CARD_ID) {
+          systemBranchCount += 1;
+          if (branch?.endsRun) systemDeadEndCount += 1;
+          continue;
+        }
+        branchCount += 1;
+        if (branch?.endsRun) deadEndCount += 1;
+      }
+    }
     checkCard(file, card, seenIds);
   }
 }
 
-checkPatronObligations();
+checkPatrons();
 
 // ---------------------------------------------------------------------------
 // Output
@@ -459,6 +626,43 @@ console.log(
     `${errors.length} error${errors.length === 1 ? '' : 's'} · ` +
     `${warnings.length} warning${warnings.length === 1 ? '' : 's'}`,
 );
+
+// Dead ends: branches that end the run on the spot. Reported every run so the
+// rate can be held while the deck grows — too few and no gamble frightens
+// anyone, too many and the run is a coin flip nobody takes twice.
+if (branchCount > 0) {
+  const rate = deadEndCount / branchCount;
+  const target = DEAD_END_TARGET_RATE;
+
+  // One branch either way moves the rate by a whole 100/branchCount points, so
+  // on a small deck an exact match to the target simply is not available. Report
+  // the achievable counts around the target instead of a false verdict.
+  const idealCount = target * branchCount;
+  const lowCount = Math.floor(idealCount);
+  const highCount = Math.ceil(idealCount);
+  const withinBand = deadEndCount >= lowCount && deadEndCount <= highCount;
+  const verdict = withinBand
+    ? 'on target'
+    : deadEndCount > highCount
+      ? `HIGH — ${deadEndCount - highCount} too many`
+      : `LOW — ${lowCount - deadEndCount} too few`;
+
+  console.log('');
+  console.log(
+    `DEAD ENDS     ${deadEndCount}/${branchCount} branches end the run · ` +
+      `${(rate * 100).toFixed(1)}% vs ${(target * 100).toFixed(0)}% target · ${verdict}`,
+  );
+  console.log(
+    `              at ${branchCount} branches the target allows ` +
+      `${lowCount}${highCount === lowCount ? '' : `–${highCount}`} of them`,
+  );
+  if (systemDeadEndCount > 0) {
+    console.log(
+      `              plus ${systemDeadEndCount} on engine-scheduled cards, ` +
+        'budgeted separately',
+    );
+  }
+}
 
 // Generated placeholder content still awaiting a rewrite. Reported on every
 // run, never a warning and never an error — it is a progress bar, not a defect.

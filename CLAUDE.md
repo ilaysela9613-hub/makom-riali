@@ -47,8 +47,10 @@ When the two disagree, this file wins.
 │   │   ├── rng.js               # seeded PRNG (mulberry32)
 │   │   ├── state.js             # createRun, clone, flags
 │   │   ├── cards.js             # eligibility, weighted draw, applyOption
-│   │   ├── segments.js          # segment support math
-│   │   ├── patron.js            # eligibility, affinities, upkeep, obligations
+│   │   ├── segments.js          # segment support math + display blocs
+│   │   ├── credibility.js       # stances, dirty dealing, defection
+│   │   ├── patron.js            # kinds, binding, betrayal
+│   │   ├── patronage.js         # composes taking a patron with the slot chain
 │   │   ├── slots.js             # offerChance + slotValue → the slot table
 │   │   ├── election.js          # turnout, threshold, surplus, Bader-Ofer
 │   │   ├── party.js             # own-party founding, recruitment
@@ -59,6 +61,9 @@ When the two disagree, this file wins.
 │   │   ├── parties.js
 │   │   ├── patrons.js
 │   │   ├── archetypes.js
+│   │   ├── titles.js            # end titles
+│   │   ├── defections.js        # Hebrew for voters walking out
+│   │   ├── feedback.js          # Hebrew for the post-turn beat
 │   │   ├── recruits.js
 │   │   └── cards/
 │   │       ├── index.js         # imports + concatenates all card files
@@ -71,12 +76,19 @@ When the two disagree, this file wins.
 │   │       ├── patron-obligations.js
 │   │       └── own-party.js
 │   └── ui/                      # browser only
-│       ├── screen-card.js
+│       ├── styles.css           # the whole stylesheet; logical properties only
+│       ├── dom.js               # element builders, no framework
+│       ├── screen-start.js
 │       ├── screen-patron.js
-│       ├── hud-slots.js
-│       ├── hud-poll.js
-│       ├── screen-election.js
-│       └── share-card.js        # canvas → PNG
+│       ├── screen-offer.js      # a party wants you on its list
+│       ├── screen-card.js       # the card, and the post-turn beat
+│       ├── screen-election.js   # seat chart + drift chart
+│       ├── screen-end.js        # composes the end screen
+│       ├── hud-slots.js         # the one slot line
+│       ├── hud-blocs.js         # three bloc bars
+│       ├── hud-poll.js          # own mandates + countdown
+│       ├── debug-panel.js       # ?debug=1
+│       └── share-card.js        # canvas → PNG  (M5)
 └── tools/                       # Node only
     ├── validate.js
     ├── simulate.js
@@ -182,43 +194,57 @@ export default [
     text:  'ועדת החוץ והביטחון מצביעה מחר. יושב ראש הסיעה מבהיר שהוא מצפה למשמעת קואליציונית.',
 
     options: [
+      // CERTAIN — a flat statement of the result. No odds, because there are none.
       {
         label: 'להצביע בעד, כמו שהתבקשת',
-        pill:  'מחזק במעמד המפלגתי · פוגע בצעירים ובמרכז החילוני',
+        certainText: 'עלייה במעמד בסיעה · הצעירים עוזבים',
         axes:     { religion: +0.08 },
         capital:  { credibility: -4, party_standing: +6 },
         segments: { haredi: +1.2, young_reservists: -1.5 },
       },
-      {
-        label: 'להיעדר מההצבעה',
-        pill:  'מחיר נמוך בכל הכיוונים',
-        capital:  { credibility: -2, party_standing: -3 },
-        segments: { haredi: -0.3 },
-      },
+      // GAMBLE — exactly two branches, chances summing to 100, each with its own
+      // outcome text and its own effects. Effects live on the BRANCH, never on
+      // the option around it.
       {
         label: 'להצביע נגד ולצאת לתקשורת',
-        pill:  'הימור · מחזק בצעירים · עלול לעלות לך במעמד המפלגתי',
-        risk: 0.35,
-        capital:  { popularity: +9, party_standing: -12 },
-        segments: { young_reservists: +2.0, haredi: -2.2 },
-        onFail: {
-          capital: { party_standing: -10 },
-          flags: ['marked_as_rebel'],
-          text: 'יושב ראש הסיעה הוריד אותך מהוועדה.',
-        },
+        stance: { axis: 'religion', direction: -1 },
         unlocks: ['coalition_crisis_01'],
+        branches: [
+          {
+            chance: 55,
+            text: 'הצעירים מאמצים אותך · החרדים מוחקים אותך',
+            capital:  { popularity: +9, party_standing: -8 },
+            segments: { young_reservists: +2.0, haredi: -2.2 },
+          },
+          {
+            chance: 45,
+            text: 'הוצאת מהסיעה — הריצה שלך נגמרת כאן',
+            endsRun: true,
+            capital: { party_standing: -20 },
+            flags: ['marked_as_rebel'],
+          },
+        ],
       },
     ],
   },
 ];
 ```
 
-### Two strings per option
+### One shape or the other, never both
 
-`label` is the choice as the player would phrase it. `pill` states the
-mechanical direction plainly. The pill removes ambiguity without removing risk:
-the player knows the direction, not the magnitude or whether a gamble lands.
-Both are required.
+An option carries **`certainText`** or **`branches`**, and the validator errors
+on anything else. There is no `pill`: the player reads the situation, not a
+summary of where it pushes. The only forward-looking information in the game is
+the outcome text on a gamble's branches, and that comes with honest odds
+attached.
+
+`branches` has exactly two entries whose `chance` values sum to 100. Resolution
+rolls against the run's seeded PRNG, so a gamble is reproducible from the seed
+and cannot be rerolled.
+
+A branch may set `endsRun: true` to stop the run on the spot (or a string
+naming the cause). `tools/validate.js` reports the share of branches that do,
+against `DEAD_END_TARGET_RATE` in tuning.js.
 
 ### Authoring discipline
 
@@ -231,11 +257,13 @@ author.
 **Errors** (exit non-zero):
 - `id` unique across all files
 - `camp` present and valid
-- `label` and `pill` present on every option
+- `label` present on every option
+- every option has `certainText` OR `branches`, never both and never neither
+- `branches` has exactly 2 entries, `chance` values summing to 100
+- a gamble carries no effect blocks on the option itself
 - ≥ 2 options
 - every `segments` / `capital` / `axes` key is real
 - `|segment delta| ≤ 3.0`, `|axis delta| ≤ 0.25`, `|capital delta| ≤ 20`
-- `risk` present ⟹ `onFail` present
 - every id in `excludes`, `unlocks`, `notSeen` resolves to a real card
 - `requires` uses only known keys
 - every `patron` id in `requires` exists in `data/patrons.js`
@@ -254,60 +282,57 @@ Without it every run plays identically and variety comes only from card draw.
 
 ### 4.1 Record shape
 
-Mirror the card format: mostly strings, plus small pure functions.
+Two kinds, and neither charges rent. A patron does not drain you every turn — it
+**binds** you. Whoever backs you names the axes you are held to, and deviating
+from one is an ordinary flip that the M3 stance/defection machinery punishes on
+its own. There is no parallel patron punishment system and there must never be
+one.
 
 ```js
 // src/data/patrons.js
-import { PATRON_POPULARITY_MID, PATRON_POPULARITY_HIGH, DONOR_MIN_RESOURCES } from './tuning.js';
+{
+  id: 'halikud_branch_boss',
+  kind: 'gatekeeper',                  // 'gatekeeper' | 'sponsor' | 'none'
+  displayName: 'ראש סניף בליכוד — <fictional>',
+  pitch: '…',
+  agendaText: 'קו ביטחוני נוקשה ושמירה על הסטטוס קוו הדתי — בלי סטיות.',
 
-const notFounder = (p) => !p.ownParty;
-const PRIMARIES_PARTIES = new Set(['likud', 'democrats']);
+  eligible: (player) => player.capital.party_standing >= BRANCH_BOSS_MIN_PARTY_STANDING,
 
-export default {
-  donor: {
-    id: 'donor',
-    displayName: 'תורם — <fictional>',
-    shortName: '<fictional>',
-    pitch: 'הוא לא מבקש ג׳וב ולא מבקש תפקיד. הוא רק רוצה שתזכור מי מימן לך את הסיבוב הראשון במרכז.',
-    pillLabel: 'סיכוי גבוה יותר במפלגות עם פריימריז · חוב שייגבה בהמשך',
-
-    eligible: (p) => p.capital.resources >= DONOR_MIN_RESOURCES,
-    offerAffinity: (party, p) => PRIMARIES_PARTIES.has(party.id) ? 1.5 : 1,
-    slotAffinity:  (party, p) => party.selection === 'primaries' ? 1.12 * 0.94 : 1,
-
-    upkeep:   { credibility: -1 },
-    axesPull: { economy: +0.02 },
-    obligation: { cardId: 'donor_calls_in_favour', turnRange: [6, 14] },
-  },
-  // ...
-};
+  party: 'halikud',                    // gatekeeper only; null for a sponsor
+  bindingAxes: ['security', 'religion'],
+  headStart: null,                     // sponsor only
+}
 ```
 
-Note `1.12 * 0.94` — boost and price, left unevaluated per §0.7.
+- **gatekeeper** — seats the player on `party`'s list directly, no offer roll.
+  Binding directions are read off the party's own `axes`, because being held to
+  a party's line means exactly that.
+- **sponsor** — no party. Pays a `headStart` of `{ capital, segments }` and
+  states its own `agendaAxes: { economy: +1 }`, since it has no party to read
+  directions from.
+- **none** — a real strategic option. Nobody opens a door, and nobody owns one
+  of your positions either.
 
-### 4.2 Roster and gates
+The seat a gatekeeper gives is scaled to the party's projected size
+(`GATEKEEPER_SEAT_DEPTH`) and then dragged only part of the way there from what
+the player's capital is worth (`GATEKEEPER_SLOT_CONCESSION`). Anchoring it on
+each party's best open slot instead makes the deal worth wildly different
+amounts depending on who is offering.
 
-The gates ARE the progression ladder. Constants live in `tuning.js`.
+### 4.2 Betrayal
 
-| id | Gate | Boosts | Price |
-|---|---|---|---|
-| `none` | always | nothing | none; `credibility` decays slower |
-| `local_boss` | always | 2–3 hardcoded party ids | low upkeep, caps ceiling |
-| `donor` | `resources ≥ 25` | `primaries` parties | obligation card, credibility drain |
-| `chairman` | `popularity ≥ 45` | `chairman_appointed` Tier A/B | heavy `axesPull` to party line |
-| `media` | `popularity ≥ 60` | broad; amplifies `popularity` gains | amplifies bad events too |
-| `sector_leader` | `partyTurns ≥ 8` AND max segment affinity ≥ 0.7 | current party far above all others | locks party and segment |
+`PATRON_BETRAYAL_CHANCE` of runs, at a turn inside `BETRAYAL_TURN_RANGE`. The
+roll happens **once per run**, the first time a binding patron is taken —
+switching patrons re-targets a betrayal that was already coming, it never buys a
+fresh roll.
 
-`sector_leader` must exclude players currently on `chairman` or `media`, or
-dropping down from a high tier into the loyalty bonus is a free exploit.
-
-Hardcode the party ids for `local_boss` as a `Set`. Three parties needing the
-behaviour does not justify a relationship abstraction.
-
-`none` is a real strategic option, not an absence. Independence should be
-playable.
-
----
+It arrives as an ordinary two-branch card (`patron_demands_realignment`, marked
+`scheduledOnly` so the weighted draw can never deal it). Accepting reverses every
+binding stance, which turns each position the player already declared into a
+flip and lets the existing defection code fire. Refusing loses the patron — and
+a gatekeeper's seat with them — and carries a `FAKE_NEWS_CHANCE` branch that
+ends the run.
 
 ## 5. Engine API
 
@@ -337,12 +362,15 @@ one without the other.
 ```
 offerChance(party, player) = base(party.tier, player.capital)
                            × party.offerAffinity(player)
-                           × patron.offerAffinity(party, player)
 
 slotValue(party, player)   = base(party.openSlots, player.capital)
                            × party.slotAffinity(player)
-                           × patron.slotAffinity(party, player)
 ```
+
+M4 removed the patron leg of both chains. A patron no longer nudges the odds
+from outside: a gatekeeper puts you on a list outright, a sponsor gives a head
+start. The two chains stay separate because party modifiers still have to be
+able to move one without touching the other.
 
 `slotTable` composes both. It is the player-facing score, derived and never
 stored — the HUD shows what slot the player is currently worth in each party.
@@ -413,9 +441,16 @@ their attention on Hebrew content rather than on the engine.
   `slotTable`, not `computeSlots`.
 - **One English gloss per domain concept, used everywhere.** Pick `slot` and
   never also write `place`, `position` or `rank` for the same thing. Same for
-  `segment` (not `bloc`/`group`), `mandate` (not `seat` in some places and
-  `mandate` in others — pick one), `patron` (not `sponsor`/`backer`).
+  `segment` (not `group`/`demographic`), `seat` (not `mandate` in some places
+  and `seat` in others — the §5 API fixes this one on `seat`), `patron` (not
+  `sponsor`/`backer`), `stance` (not `position`/`pledge`/`commitment`),
+  `defection` (not `backlash`/`churn`/`walkout`).
   A bilingual domain makes drift here very easy and very confusing.
+- `segment` and `bloc` are **different concepts and both are needed.** A
+  `segment` is one of the eight units the engine actually simulates; a `bloc` is
+  one of the three display groupings the player sees, defined by `displayBloc`
+  in `data/segments.js`. Never use `bloc` to mean a segment, and never let a
+  bloc reach the election maths.
 - Destructured locals keep the source name. No renaming to shorter forms.
 
 ### 8.2 General

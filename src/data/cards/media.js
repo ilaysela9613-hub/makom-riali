@@ -1,10 +1,9 @@
 // תקשורת — ראיונות, רשתות, ניהול תדמית.
 //
-// PLACEHOLDER CONTENT — see the note at the top of security.js, including the
-// balance rule: an option is a trade, not a gift.
+// PLACEHOLDER CONTENT — see the schema note at the top of security.js.
 //
 // Cards here are where the `media` patron's amplification bites: it multiplies
-// every capital delta in both directions, so the same option is a bigger win
+// every capital delta in both directions, so the same branch is a bigger win
 // and a bigger hole depending on who is backing you.
 
 export default [
@@ -21,25 +20,31 @@ export default [
     options: [
       {
         label: 'להגיע מוכן עם מסר אחד ולחזור עליו',
-        pill: 'רווח בטוח בפופולריות · עולה זמן והכנה',
+        certainText: 'עלייה בטוחה בפופולריות · עולה זמן והכנה',
         capital: { popularity: +6, resources: -4 },
         segments: { secular_center: +0.5 },
       },
       {
         label: 'לוותר על הראיון ולשמור על עצמך',
-        pill: 'לא קורה כלום · הזמן רץ',
+        certainText: 'ללא השפעה',
         capital: { credibility: +2, popularity: -2 },
       },
       {
         label: 'לענות בכנות על השאלה שהוא באמת שואל',
-        pill: 'הימור · קפיצה גדולה בפופולריות · או ציטוט שירדוף אותך',
-        risk: 0.35,
-        capital: { popularity: +12, resources: -5 },
-        segments: { secular_center: +1.2, young_reservists: +1.0 },
-        onFail: {
-          capital: { popularity: -8, party_standing: -7 },
-          text: 'שלוש שניות מתוך שבע דקות רצו בלופ יומיים. אף אחד לא זוכר את השאר.',
-        },
+        branches: [
+          {
+            chance: 65,
+            text: 'הרגע רץ ברשת לטובתך — קפיצה גדולה בפופולריות',
+            capital: { popularity: +13, resources: -5 },
+            segments: { secular_center: +1.2, young_reservists: +1.0 },
+          },
+          {
+            chance: 35,
+            text: 'שלוש שניות מתוך שבע דקות רצו בלופ יומיים',
+            capital: { popularity: -9, party_standing: -7 },
+            segments: { secular_center: -0.8 },
+          },
+        ],
       },
     ],
   },
@@ -61,13 +66,24 @@ export default [
     options: [
       {
         label: 'ללכת ולדבר בכנות',
-        pill: 'מחזק במרכז החילוני · הבסיס שלך ישאל למה הלכת',
-        capital: { popularity: +6, party_standing: -4 },
-        segments: { secular_center: +1.4, religious_zionist: -0.7 },
+        branches: [
+          {
+            chance: 55,
+            text: 'הרחבת קהל — המרכז החילוני עובר אליך',
+            capital: { popularity: +8, party_standing: -4 },
+            segments: { secular_center: +1.8 },
+          },
+          {
+            chance: 45,
+            text: 'הבסיס שלך שואל למה בכלל הלכת לשם',
+            capital: { popularity: +2, party_standing: -6 },
+            segments: { religious_zionist: -1.3, traditional_mizrahi: -0.7 },
+          },
+        ],
       },
       {
         label: 'לוותר ולהישאר עם הקהל שלך',
-        pill: 'שומר על הבסיס · לא מרחיב כלום',
+        certainText: 'הבסיס נשמר · לא הרחבת כלום',
         capital: { party_standing: +3, popularity: -3 },
         segments: { religious_zionist: +0.5 },
       },
@@ -87,13 +103,13 @@ export default [
     options: [
       {
         label: 'לקחת את הפינה',
-        pill: 'מחזק במסורתיים ובפריפריה · עולה זמן וכסף',
+        certainText: 'מסורתיים ופריפריה עוברים אליך · עולה זמן וכסף',
         capital: { resources: -6 },
         segments: { traditional_mizrahi: +1.5, periphery_general: +1.0 },
       },
       {
         label: 'לוותר ולהשקיע ברשתות',
-        pill: 'מחזק בצעירים · מוותר על קהל שבאמת מצביע',
+        certainText: 'צעירים עוברים אליך · ויתרת על קהל שבאמת מצביע',
         capital: { resources: -3 },
         segments: { young_reservists: +1.1, traditional_mizrahi: -0.5 },
       },
@@ -113,18 +129,24 @@ export default [
     options: [
       {
         label: 'לפרסם את הנאום המלא ולהסביר',
-        pill: 'מחיר קטן בפופולריות · הסיפור ידעך לבד',
+        certainText: 'הסיפור ידעך לבד · מחיר קטן בפופולריות',
         capital: { popularity: -3, credibility: +2 },
       },
       {
         label: 'לצאת להתקפה ולהפוך את זה לסיפור על מי ערך',
-        pill: 'הימור · מוחק את הסיפור אם זה עובד · מכפיל אותו אם לא',
-        risk: 0.45,
-        capital: { popularity: +9, credibility: -2 },
-        onFail: {
-          capital: { popularity: -11, credibility: -6 },
-          text: 'ההתקפה הפכה לסיפור השני. עכשיו יש שני סרטונים.',
-        },
+        branches: [
+          {
+            chance: 55,
+            text: 'ההתקפה עבדה — הסיפור נמחק והרווחת ממנו',
+            capital: { popularity: +10, credibility: -2 },
+          },
+          {
+            chance: 45,
+            text: 'עכשיו יש שני סרטונים, ואתה בשניהם',
+            capital: { popularity: -12, credibility: -6 },
+            segments: { secular_center: -1.0 },
+          },
+        ],
       },
     ],
   },
@@ -142,13 +164,14 @@ export default [
     options: [
       {
         label: 'לרכך את הניסוח ולצאת עם יחס אוהד',
-        pill: 'מחזק במרכז החילוני · מחיר באמינות',
+        integrity: 'dirty',
+        certainText: 'כתבה אוהדת · המרכז החילוני עובר אליך',
         capital: { popularity: +5, credibility: -4 },
         segments: { secular_center: +1.1 },
       },
       {
         label: 'להגיד בדיוק את מה שאתה אומר בכל מקום',
-        pill: 'מחזק באמינות · הכתבה תהיה קרירה',
+        certainText: 'הכתבה תהיה קרירה · לא ויתרת על כלום',
         capital: { credibility: +6, popularity: -4 },
       },
     ],

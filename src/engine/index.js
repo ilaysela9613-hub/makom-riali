@@ -7,7 +7,8 @@
 
 export { createRun } from './state.js';
 export { drawCard, applyOption } from './cards.js';
-export { eligiblePatrons, choosePatron } from './patron.js';
+export { eligiblePatrons } from './patron.js';
+export { takePatron as choosePatron, gatekeeperSeat } from './patronage.js';
 export { slotTable } from './slots.js';
 export { poll, runElection } from './election.js';
 
@@ -20,7 +21,7 @@ export { poll, runElection } from './election.js';
 // ---------------------------------------------------------------------------
 
 export { endTurn } from './cards.js';
-export { isRunOver, cloneRun, actForTurn, playerPartyId } from './state.js';
+export { isRunOver, earlyEnding, cloneRun, actForTurn, playerPartyId } from './state.js';
 
 // ---------------------------------------------------------------------------
 // Own party — M4 fills these out; the shapes are here now because election.js
@@ -61,6 +62,44 @@ export {
   isListSubmissionClosed,
   hasDeclinedParty,
 } from './slots.js';
-export { currentPatron, patronById } from './patron.js';
-export { cardById, allCards, eligibleCards, trailingCampStreak } from './cards.js';
+export {
+  currentPatron,
+  patronById,
+  bindingDirections,
+  isBindingAxis,
+  acceptBetrayal,
+  refuseBetrayal,
+  dueBetrayalCardId,
+  BETRAYAL_CARD_ID,
+  PATRON_KINDS,
+} from './patron.js';
+export {
+  cardById,
+  allCards,
+  eligibleCards,
+  trailingCampStreak,
+  isGamble,
+  branchValence,
+  resolveBranch,
+  endsRunCause,
+} from './cards.js';
 export { createRng } from './rng.js';
+
+// ---------------------------------------------------------------------------
+// Stances and defection
+// ---------------------------------------------------------------------------
+
+export {
+  applyStance,
+  applyIntegrity,
+  applyIntegrityConsequences,
+  declaredStance,
+  isFlip,
+  segmentsPunishing,
+  defectionDeltas,
+  INTEGRITY_VALUES,
+  DEFECTION_REASONS,
+} from './credibility.js';
+
+// Display blocs — the three bars that replace eight segment readouts.
+export { blocSupport, blocAffinity, blocReadout } from './segments.js';

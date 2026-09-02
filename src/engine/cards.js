@@ -11,6 +11,8 @@ import {
   CAMP_BALANCE_EXEMPT_CAMPS,
   SEEN_CARD_WEIGHT_MULTIPLIER,
   UNLOCKED_CARD_WEIGHT_MULTIPLIER,
+  BRANCH_CHANCE_TOTAL,
+  BRANCH_VALENCE_SEGMENT_WEIGHT,
 } from '../data/tuning.js';
 import { deriveRng, createRng } from './rng.js';
 import {
@@ -22,8 +24,11 @@ import {
 } from './state.js';
 import { applySegmentDeltas } from './segments.js';
 import { currentParty } from './party.js';
-import { amplifyCapitalDeltas, applyPatronUpkeep, dueObligationCardId } from './patron.js';
+import { dueBetrayalCardId, acceptBetrayal, refuseBetrayal } from './patron.js';
 import { lapseUnansweredOffers, openOffers } from './slots.js';
+import { poll } from './election.js';
+import { playerPartyId } from './state.js';
+import { applyIntegrityConsequences } from './credibility.js';
 
 /** The only keys a card's `requires` block may use. The validator imports this. */
 export const REQUIRES_KEYS = [
@@ -79,6 +84,9 @@ function excludedCardIds(state) {
 }
 
 export function isCardEligible(state, card, excluded = excludedCardIds(state)) {
+  // Engine-scheduled cards are never dealt by the weighted draw. They appear
+  // when the system that owns them says so, and at no other time.
+  if (card.scheduledOnly) return false;
   if (card.act !== state.act) return false;
   if (excluded.has(card.id)) return false;
   if (LOCKED_CARD_IDS.has(card.id) && !state.unlocked.includes(card.id)) return false;
@@ -180,10 +188,11 @@ function drawWeight(state, card) {
  * often it happens so deck coverage stays visible while the author writes.
  */
 export function drawCard(state) {
-  const obligationCardId = dueObligationCardId(state);
-  if (obligationCardId) {
-    const obligationCard = cardById(obligationCardId);
-    if (obligationCard) return obligationCard;
+  // The patron's demand jumps the queue: when it comes due it is the turn.
+  const betrayalCardId = dueBetrayalCardId(state);
+  if (betrayalCardId) {
+    const betrayalCard = cardById(betrayalCardId);
+    if (betrayalCard) return betrayalCard;
   }
 
   const eligible = eligibleCards(state);
@@ -206,19 +215,63 @@ export function drawCard(state) {
 function applyEffectBlock(state, effects) {
   if (!effects) return state;
   let next = withAxes(state, effects.axes);
-  next = withCapital(next, amplifyCapitalDeltas(next, effects.capital));
+  next = withCapital(next, effects.capital);
   next = applySegmentDeltas(next, effects.segments);
   next = withFlags(next, effects.flags);
   return next;
 }
 
+/** A gamble carries branches; a certain option carries `certainText`. */
+export function isGamble(option) {
+  return Array.isArray(option.branches);
+}
+
+/**
+ * Which branch a roll lands on. Chances are whole percentages summing to
+ * BRANCH_CHANCE_TOTAL, walked in author order so the first branch listed owns
+ * the bottom of the range.
+ */
+export function resolveBranch(option, rng) {
+  const roll = rng.range(0, BRANCH_CHANCE_TOTAL);
+  let cumulative = 0;
+  for (const branch of option.branches) {
+    cumulative += branch.chance;
+    if (roll < cumulative) return branch;
+  }
+  return option.branches[option.branches.length - 1];
+}
+
+/**
+ * Whether a branch reads as a good outcome or a bad one.
+ *
+ * Presentation only — it decides the colour of the branch line in the option
+ * button and nothing else. A branch that ends the run is always bad news
+ * however its numbers happen to add up.
+ */
+export function branchValence(branch) {
+  if (branch.endsRun) return 'negative';
+  const capitalTotal = Object.values(branch.capital ?? {}).reduce((sum, delta) => sum + delta, 0);
+  const segmentTotal = Object.values(branch.segments ?? {}).reduce((sum, delta) => sum + delta, 0);
+  const score = capitalTotal + segmentTotal * BRANCH_VALENCE_SEGMENT_WEIGHT;
+  if (score > 0) return 'positive';
+  if (score < 0) return 'negative';
+  return 'neutral';
+}
+
+/** The cause recorded when a branch ends the run. */
+export function endsRunCause(branch) {
+  if (!branch?.endsRun) return null;
+  return typeof branch.endsRun === 'string' ? branch.endsRun : 'dead_end';
+}
+
 /**
  * Resolves one option of one card.
  *
- * An option's own effects always land. `onFail` is *additional* — a gamble that
- * misses costs you the thing you gambled plus the consequence.
+ * A certain option applies its own effect block. A gamble applies exactly one
+ * branch, chosen by a roll against the run's seeded PRNG — so the outcome is
+ * reproducible from the seed and the player cannot reroll it.
  *
- * @returns {{ state: object, resolution: { cardId, optionIndex, risked, failed, failText } }}
+ * @returns {{ state: object, resolution: object }}
  */
 export function applyOption(state, cardId, optionIndex) {
   const card = cardById(cardId);
@@ -230,18 +283,37 @@ export function applyOption(state, cardId, optionIndex) {
     );
   }
 
-  const risked = typeof option.risk === 'number';
+  const gamble = isGamble(option);
   let next = state;
-  let failed = false;
+  let branch = null;
+  let branchIndex = null;
 
-  if (risked) {
+  if (gamble) {
     const rng = createRng(state.rngCursor);
-    failed = rng.chance(option.risk);
-    next = { ...next, rngCursor: rng.cursor };
+    branch = resolveBranch(option, rng);
+    branchIndex = option.branches.indexOf(branch);
+    next = applyEffectBlock({ ...next, rngCursor: rng.cursor }, branch);
+  } else {
+    next = applyEffectBlock(next, option);
   }
 
-  next = applyEffectBlock(next, option);
-  if (failed) next = applyEffectBlock(next, option.onFail);
+  // Stances and dirty dealing resolve after the effects, so a defection is
+  // priced against the support the player has just finished earning rather than
+  // the support they started the turn with.
+  const consequences = applyIntegrityConsequences(next, option);
+  next = consequences.state;
+  const defections = [...consequences.defections];
+
+  // Answering the patron's demand. Accepting reverses the binding stances,
+  // which the M3 flip detection then punishes on its own; refusing simply takes
+  // back what the patron was providing.
+  if (option.patronBetrayal === 'accept') {
+    const accepted = acceptBetrayal(next);
+    next = accepted.state;
+    defections.push(...accepted.defections);
+  } else if (option.patronBetrayal === 'refuse') {
+    next = refuseBetrayal(next);
+  }
 
   if (option.unlocks?.length) {
     const unlocked = [...next.unlocked];
@@ -251,12 +323,18 @@ export function applyOption(state, cardId, optionIndex) {
     next = { ...next, unlocked };
   }
 
+  const outcomeText = gamble ? branch.text : option.certainText;
+  const cause = endsRunCause(branch);
+
   next = {
     ...next,
     seen: next.seen.includes(cardId) ? next.seen : [...next.seen, cardId],
-    history: [...next.history, { turn: state.turn, cardId, optionIndex }],
-    pendingObligation:
-      next.pendingObligation?.cardId === cardId ? null : next.pendingObligation,
+    history: [...next.history, { turn: state.turn, cardId, optionIndex, branchIndex }],
+    pendingBetrayal:
+      cardId === 'patron_demands_realignment' ? null : next.pendingBetrayal,
+    endedEarly: cause
+      ? { turn: state.turn, cardId, cause, text: outcomeText }
+      : next.endedEarly,
   };
 
   // The log carries the Hebrew the data layer already wrote. The engine copies
@@ -264,8 +342,9 @@ export function applyOption(state, cardId, optionIndex) {
   next = appendLog(next, {
     title: card.title,
     label: option.label,
-    failed,
-    failText: failed ? option.onFail?.text ?? null : null,
+    outcomeText,
+    endedRun: Boolean(cause),
+    defections: defections.map((defection) => defection.detail),
   });
 
   return {
@@ -273,22 +352,36 @@ export function applyOption(state, cardId, optionIndex) {
     resolution: {
       cardId,
       optionIndex,
-      risked,
-      failed,
-      failText: failed ? option.onFail?.text ?? null : null,
+      gamble,
+      branchIndex,
+      branch,
+      outcomeText,
+      valence: branch ? branchValence(branch) : 'neutral',
+      endsRun: Boolean(cause),
+      cause,
+      defections,
     },
   };
 }
 
+/** Remembers the best the player's list has ever polled. */
+export function recordPeakSeats(state) {
+  const partyId = playerPartyId(state);
+  if (!partyId) return state;
+  const seats = poll(state)[partyId] ?? 0;
+  return seats > state.peakSeats ? { ...state, peakSeats: seats } : state;
+}
+
 /**
- * Closes the turn: patron upkeep and ideology pull, any offer left on the table
+ * Closes the turn: any offer left on the table
  * lapses, the clock advances, and the new turn's offers open.
  *
  * Lives here because the turn *is* the card cycle (SPEC §7.1), and because
  * state.js cannot import patron.js without a cycle.
  */
 export function endTurn(state) {
-  let next = applyPatronUpkeep(state);
+  // No patron upkeep: a patron binds, it does not charge rent.
+  let next = recordPeakSeats(state);
   next = lapseUnansweredOffers(next);
   next = advanceTurn(next);
   return openOffers(next);

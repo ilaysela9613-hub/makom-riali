@@ -1,7 +1,6 @@
 // כלכלה ותקציב.
 //
-// PLACEHOLDER CONTENT — see the note at the top of security.js, including the
-// balance rule: an option is a trade, not a gift.
+// PLACEHOLDER CONTENT — see the schema note at the top of security.js.
 
 export default [
   {
@@ -21,21 +20,35 @@ export default [
     options: [
       {
         label: 'להתנגד בפומבי ולדרוש לפצל את ההצבעה',
-        pill: 'מחזק בפריפריה · מחיר כבד במעמד המפלגתי',
-        axes: { economy: -0.08 },
-        capital: { popularity: +6, party_standing: -8 },
-        segments: { periphery_general: +2.0 },
+        stance: { axis: 'economy', direction: -1 },
+        branches: [
+          {
+            chance: 60,
+            text: 'ההצבעה פוצלה — הפריפריה זוקפת לך את זה',
+            axes: { economy: -0.08 },
+            capital: { popularity: +6, party_standing: -6 },
+            segments: { periphery_general: +2.0 },
+          },
+          {
+            chance: 40,
+            text: 'הקיצוץ עבר כמו שהוא, ואתה נשארת עם החשבון',
+            axes: { economy: -0.08 },
+            capital: { party_standing: -11, popularity: +2 },
+            segments: { periphery_general: +0.5 },
+          },
+        ],
       },
       {
         label: 'לתמוך בקיצוץ ולהסביר שהוא הכרחי',
-        pill: 'מחזק במעמד המפלגתי · מחיר באמינות · פוגע בפריפריה ובמסורתיים',
+        certainText: 'עלייה במעמד בסיעה · הפריפריה והמסורתיים עוזבים',
+        stance: { axis: 'economy', direction: +1 },
         axes: { economy: +0.07 },
         capital: { party_standing: +7, credibility: -5 },
         segments: { periphery_general: -1.8, traditional_mizrahi: -0.9 },
       },
       {
         label: 'לנהל מו״מ שקט על שני הסעיפים ולתמוך בשאר',
-        pill: 'מחזק באמינות · לא מייצר כותרת ולא מזיז את הפופולריות',
+        certainText: 'שני הסעיפים ניצלו · אין כותרת ואין רווח ציבורי',
         capital: { credibility: +4, popularity: -3 },
         segments: { periphery_general: +0.6 },
       },
@@ -55,19 +68,30 @@ export default [
     options: [
       {
         label: 'לתמוך בהצעה כפי שהיא',
-        pill: 'מחזק בצעירים שממתינים לדיור · מקלקל לך מול הרשויות',
+        certainText: 'צעירים שממתינים לדיור עוברים אליך · הרשויות זוכרות',
         axes: { economy: +0.08 },
         capital: { popularity: +5, party_standing: -3 },
         segments: { young_reservists: +1.3 },
       },
       {
         label: 'לתמוך רק אחרי שיוסיפו סעיף התייעצות',
-        pill: 'מחזק באמינות · מאט את כל המהלך ומעצבן את הסיעה',
-        capital: { credibility: +5, party_standing: -4 },
+        branches: [
+          {
+            chance: 50,
+            text: 'הסעיף נוסף — יצאת כמי שהשיג משהו',
+            capital: { credibility: +5, popularity: +4 },
+            segments: { periphery_general: +0.8 },
+          },
+          {
+            chance: 50,
+            text: 'עיכבת את החוק לחינם · הסיעה זוקפת לך את זה',
+            capital: { party_standing: -7 },
+          },
+        ],
       },
       {
         label: 'להתנגד ולעמוד עם הרשויות',
-        pill: 'מחזק בפריפריה · מחיר במעמד המפלגתי',
+        certainText: 'הפריפריה עוברת אליך · מחיר במעמד בסיעה',
         axes: { economy: -0.06 },
         capital: { party_standing: -6 },
         segments: { periphery_general: +1.4 },
@@ -88,14 +112,14 @@ export default [
     options: [
       {
         label: 'לתמוך בהעלאה מעבר למתווה',
-        pill: 'מחזק בפריפריה · מקלקל לך מול המגזר העסקי',
+        certainText: 'הפריפריה עוברת אליך · המגזר העסקי נסגר בפניך',
         axes: { economy: -0.08 },
         capital: { popularity: +4, party_standing: -3 },
         segments: { periphery_general: +1.5 },
       },
       {
         label: 'לאשר את המתווה כפי שסוכם',
-        pill: 'מחזק באמינות · לא מרגש אף אחד',
+        certainText: 'ללא השפעה ציבורית',
         capital: { credibility: +4, popularity: -3 },
       },
     ],
@@ -114,16 +138,28 @@ export default [
     options: [
       {
         label: 'לתמוך ברפורמה',
-        pill: 'מחזק במרכז החילוני · מחיר במעמד המפלגתי · פוגע בפריפריה',
+        certainText: 'המרכז החילוני עובר אליך · הפריפריה עוזבת',
+        stance: { axis: 'economy', direction: +1 },
         axes: { economy: +0.09 },
         capital: { popularity: +5, party_standing: -3 },
         segments: { secular_center: +1.2, periphery_general: -1.3 },
       },
       {
         label: 'להתנות תמיכה בשמירת סעיף הרווחה',
-        pill: 'מחזק בפריפריה ובאמינות · המהלך ייתקע ומישהו יאשים אותך',
-        capital: { credibility: +4, party_standing: -3 },
-        segments: { periphery_general: +0.9 },
+        stance: { axis: 'economy', direction: -1 },
+        branches: [
+          {
+            chance: 45,
+            text: 'הסעיף נשמר — הפריפריה זוקפת לך את זה',
+            capital: { popularity: +5, party_standing: -2 },
+            segments: { periphery_general: +1.6 },
+          },
+          {
+            chance: 55,
+            text: 'המהלך נתקע וכולם מאשימים אותך',
+            capital: { party_standing: -8, popularity: -3 },
+          },
+        ],
       },
     ],
   },
@@ -141,13 +177,14 @@ export default [
     options: [
       {
         label: 'לדחוף את הרשות שבה בנית את הבסיס שלך',
-        pill: 'מחזק חזק בפריפריה · מחיר באמינות ובמשאבים',
+        integrity: 'dirty',
+        certainText: 'הפריפריה זוקפת לך את זה · עולה כסף וטובות',
         capital: { resources: -5, credibility: -3 },
         segments: { periphery_general: +1.6 },
       },
       {
         label: 'לדרוש שהמענק יחולק לפי קריטריון קבוע',
-        pill: 'מחזק באמינות · לא מייצר לך אף חבר במפלגה',
+        certainText: 'יצאת נקי · לא הרווחת אף חבר במפלגה',
         capital: { credibility: +6, party_standing: -5 },
       },
     ],

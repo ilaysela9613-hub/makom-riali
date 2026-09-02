@@ -1,55 +1,77 @@
 // חובות לפטרון — the bill coming due.
 //
-// Cards here are NOT drawn at random. Each one is named by a patron's
-// `obligation.cardId` in data/patrons.js, and engine/patron.js schedules it for
-// a turn inside that patron's `turnRange` when the patron is taken. On that
-// turn drawCard returns it regardless of the normal weighted draw.
+// This card is NOT drawn at random. engine/patron.js schedules it when a patron
+// is taken (PATRON_BETRAYAL_CHANCE of runs, at a turn inside BETRAYAL_TURN_RANGE)
+// and engine/cards.js forces it on the turn it falls due, ahead of the weighted
+// draw. The `requires.patron` list below only stops it leaking into a normal
+// draw for a player who has nobody to be betrayed by.
 //
-// That means every patron with an `obligation` needs a card here whose id
-// matches exactly. `node tools/validate.js` warns about any that is missing —
-// without a card, the favour silently never comes due.
+// The two options are answered by the engine through `patronBetrayal`:
 //
-// Currently claimed:
-//   donor_calls_in_favour  <- patrons.donor
+//   'accept'  — every binding axis flips to the opposing position. The player
+//               declared those positions when they took the patron, so the M3
+//               flip detection fires by itself and the voters who care leave.
+//               No punishment code runs here that is not already M3 code.
+//   'refuse'  — the patron is gone, and with them a gatekeeper's seat on the
+//               list. The damage of the refusal itself is on the branches.
 //
-// One example card. Add one per patron obligation as you write them.
+// PLACEHOLDER CONTENT — see the schema note at the top of security.js.
+
+import PATRONS from '../patrons.js';
+import { FAKE_NEWS_CHANCE, BRANCH_CHANCE_TOTAL } from '../tuning.js';
+
+/** Only a patron that binds you has anything to betray you over. */
+const BINDING_PATRON_IDS = Object.values(PATRONS)
+  .filter((patron) => (patron.bindingAxes ?? []).length > 0)
+  .map((patron) => patron.id);
+
+const FAKE_NEWS_BRANCH_CHANCE = Math.round(FAKE_NEWS_CHANCE * BRANCH_CHANCE_TOTAL);
 
 export default [
   {
-    id: 'donor_calls_in_favour',
+    id: 'patron_demands_realignment',
     act: 3,
     weight: 1.0,
     camp: 'neutral',
     placeholder: true,
 
+    // Forced by engine/patron.js when the demand falls due, and unreachable by
+    // the ordinary draw. Without this the deck would deal it to anyone with a
+    // binding patron, and the stated betrayal rate would mean nothing.
+    scheduledOnly: true,
+
     requires: {
-      patron: ['donor'],
+      patron: BINDING_PATRON_IDS,
     },
 
-    title: 'התורם מבקש פגישה',
-    text: 'הוא לא ביקש כלום במשך חודשים. עכשיו הוא מבקש שתיפגש עם מישהו, ומדגיש שזו רק פגישה, ושאתה כמובן לא מחויב לשום דבר.',
+    title: 'מי שהכניס אותך מבקש שתזוז',
+    text: 'הפגישה נקבעה בלי סדר יום. הוא לא מזכיר את מה שהבטחת ולא צריך להזכיר — הוא רק מסביר, בשקט, שהעמדה שלך מהחודשים האחרונים כבר לא נוחה לו, ושהוא מצפה לשמוע אותך אומר את ההיפך עד סוף השבוע.',
 
     options: [
       {
-        label: 'להיפגש ולהקשיב',
-        pill: 'שומר על התורם ועל המשאבים · מחיר באמינות',
-        capital: { resources: +8, credibility: -7 },
+        label: 'להתיישר עם הדרישה',
+        patronBetrayal: 'accept',
+        certainText: 'הפטרון נשאר · מי שהאמין למה שהצהרת יראה בדיוק מה קרה',
+        capital: { party_standing: +6 },
       },
       {
-        label: 'להיפגש, ולומר בסוף שאתה לא יכול לעזור',
-        pill: 'שומר על האמינות · המשאבים מתחילים להתייבש',
-        capital: { credibility: +4, resources: -9 },
-      },
-      {
-        label: 'לא להגיע לפגישה',
-        pill: 'הימור · ניתוק נקי אם זה עובר · הוא יודע לאסוף חובות',
-        risk: 0.45,
-        capital: { credibility: +7 },
-        onFail: {
-          capital: { resources: -14, party_standing: -6 },
-          flags: ['burned_a_patron'],
-          text: 'שני אנשים שהיו אמורים להחזיר לך טלפון היום לא החזירו. זה יימשך.',
-        },
+        label: 'לסרב ולהישאר עם מה שאמרת',
+        patronBetrayal: 'refuse',
+        branches: [
+          {
+            chance: BRANCH_CHANCE_TOTAL - FAKE_NEWS_BRANCH_CHANCE,
+            text: 'איבדת אותו ואת מה שהוא החזיק · שרדת את השבוע',
+            capital: { popularity: -6, resources: -8 },
+            segments: { secular_center: +0.9 },
+          },
+          {
+            chance: FAKE_NEWS_BRANCH_CHANCE,
+            text: 'סיפור מומצא עליך רץ בכל מקום — הקמפיין שלך נגמר',
+            endsRun: 'fake_news',
+            capital: { popularity: -20, party_standing: -14 },
+            flags: ['target_of_fake_news'],
+          },
+        ],
       },
     ],
   },

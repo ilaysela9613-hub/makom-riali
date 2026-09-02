@@ -7,7 +7,7 @@ Israeli politics.
 `CLAUDE.md` is the build contract. This file is the design rationale.
 
 **v0.2 changes:** added the patron layer (§5), split offer probability from
-slot value (§4.4), added mechanical pill labels to options (§7.2).
+slot value (§4.4), replaced pill labels with certain/gamble options (§7.2).
 
 ---
 
@@ -244,9 +244,9 @@ This should happen often.
 
 ```
 1. Draw card       — weighted by act, ideology, party, patron, event state
-2. Present         — 2–4 options, each showing its mechanical pill
+2. Present         — 2–4 options, each certain or a two-branch gamble
 3. Apply deltas    — axes, capital, segments
-4. Resolve         — risky options roll against a threshold
+4. Resolve         — a gamble rolls one of its two branches
 5. Upkeep          — patron cost, axes pull
 6. Update HUD      — slot table + weekly poll ticker
 ```
@@ -254,18 +254,28 @@ This should happen often.
 The poll ticker is essential. A mandate chart updating every turn is the
 equivalent of Legionnaire's rating chart, and it's what keeps people clicking.
 
-### 7.2 Two strings per option
+### 7.2 One shape or the other
 
-Legionnaire carries both a `pitch` (sells the choice) and a `pillLabel`
-(states the mechanical effect plainly). Do the same:
+Legionnaire's `pillLabel` is gone. A summary of where an option pushes lets the
+player optimise against the label instead of reading the situation, so the
+option itself now states either a certain result or honest odds:
 
 ```
-label: 'להצביע נגד ולצאת לתקשורת'
-pill:  'מחזק בצעירים ובמרכז החילוני · פוגע קשות במעמד המפלגתי'
+label: 'לא להתערב'
+certainText: 'ללא השפעה'
 ```
 
-The pill removes ambiguity without removing risk. The player knows the
-direction; they don't know the magnitude or whether the gamble lands.
+```
+label: 'לקבל את ההצעה'
+branches:
+  30%  לא נתפסת — גל תמיכה
+  70%  נתפסת — ירידה חדה בתמיכה ובמעמד המפלגתי
+```
+
+Both branches are shown before the choice, with their real probabilities. The
+player knows exactly what is on the table and exactly how likely each side is;
+what they do not know is which way the roll will go. That is the only
+forward-looking information in the game.
 
 ### 7.3 Authoring discipline
 

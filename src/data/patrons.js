@@ -1,218 +1,164 @@
-// Patrons — the persistent modifier layer.
+// Patrons — who put you where you are, and what they hold over you.
 //
-// Nobody arrives in the Knesset unsponsored. Someone put you there, and the
-// price is never money: it is credibility, ideological independence, and a
-// favour asked at the worst possible moment (SPEC §5).
+// Two kinds. Neither charges rent; both bind you.
 //
-// The gates ARE the progression ladder (CLAUDE.md §4.2). Every threshold lives
-// in tuning.js; every multiplier is composed here so the boost and the price
-// stay visible side by side (CLAUDE.md §0.7).
+//   gatekeeper — puts you straight onto an existing party's list. In exchange
+//                you are held to that party's line on `bindingAxes`. The
+//                direction comes from the party's own position, so a gatekeeper
+//                never needs to restate it.
 //
-// `eligible`, `offerAffinity`, `slotAffinity` and `axesPull` all receive the
-// whole run state. All patron names are fictional.
+//   sponsor    — no party. Gives a head start in voters or capital, and a fixed
+//                public agenda (`agendaAxes`) you are held to just as tightly.
+//                A sponsor must state its own directions; there is no party to
+//                read them from.
+//
+// Binding is enforced entirely by the M3 stance/defection machinery: taking a
+// patron declares a stance on each binding axis, and contradicting one later is
+// an ordinary flip. There is no separate patron punishment anywhere.
+//
+// All patron names are fictional.
 
-import PARTIES from './parties.js';
 import {
+  STARTING_PATRON,
+  BRANCH_BOSS_MIN_PARTY_STANDING,
+  COUNCIL_AIDE_MIN_RELIGION_AXIS,
+  CHIEF_OF_STAFF_MIN_POPULARITY,
+  CHIEF_OF_STAFF_MIN_RESOURCES,
+  ORGANISER_MIN_CREDIBILITY,
   DONOR_MIN_RESOURCES,
-  CHAIRMAN_MIN_POPULARITY,
-  MEDIA_MIN_POPULARITY,
-  SECTOR_LEADER_MIN_PARTY_TURNS,
-  SECTOR_LEADER_MIN_SEGMENT_AFFINITY,
-  LOCAL_BOSS_OFFER_BOOST,
-  LOCAL_BOSS_SLOT_BOOST,
-  LOCAL_BOSS_BEST_ATTAINABLE_SLOT,
-  LOCAL_BOSS_UPKEEP_RESOURCES,
-  LOCAL_BOSS_RULE_OF_LAW_PULL,
-  DONOR_PRIMARIES_OFFER_BOOST,
-  DONOR_PRIMARIES_SLOT_BOOST,
-  DONOR_SLOT_PRICE,
-  DONOR_UPKEEP_CREDIBILITY,
-  DONOR_ECONOMY_PULL,
-  CHAIRMAN_APPOINTED_OFFER_BOOST,
-  CHAIRMAN_APPOINTED_SLOT_BOOST,
-  CHAIRMAN_OFF_TIER_PENALTY,
-  CHAIRMAN_UPKEEP_CREDIBILITY,
-  CHAIRMAN_AXES_PULL_RATE,
-  MEDIA_OFFER_BOOST,
-  MEDIA_SLOT_BOOST,
-  MEDIA_CAPITAL_AMPLIFICATION,
-  MEDIA_UPKEEP_CREDIBILITY,
-  SECTOR_LEADER_OWN_PARTY_OFFER_BOOST,
-  SECTOR_LEADER_OWN_PARTY_SLOT_BOOST,
-  SECTOR_LEADER_OTHER_PARTY_PENALTY,
-  SECTOR_LEADER_UPKEEP_RESOURCES,
-  SECTOR_LEADER_RELIGION_PULL,
+  FEDERATION_MIN_PARTY_STANDING,
+  BROADCAST_MIN_POPULARITY,
 } from './tuning.js';
-
-/**
- * The three parties this particular עסקן can actually deliver. Hardcoded on
- * purpose (CLAUDE.md §4.2): three parties needing the behaviour does not
- * justify a relationship abstraction. Ids that leave the roster simply stop
- * matching.
- */
-const LOCAL_BOSS_PARTY_IDS = new Set(['halikud', 'shas', 'amcha_yisrael']);
-
-/** Parties selecting by primaries — read off the roster, never hardcoded. */
-const isPrimariesParty = (party) => party.selection === 'primaries';
-
-const isChairmanAppointedTopTier = (party) =>
-  party.selection === 'chairman_appointed' && (party.tier === 'A' || party.tier === 'B');
-
-const peakAffinity = (state) => Math.max(...Object.values(state.affinity));
-
-const isFounder = (state) => Boolean(state.ownParty);
 
 export default {
   // -------------------------------------------------------------------------
-  // none — a real strategic option, not an absence. Independence is playable:
-  // nothing boosts you, nothing pulls your axes, and your credibility erodes
-  // at half the usual rate because nobody is spending it for you.
+  // No patron. A real strategic option, not an absence: nobody opens a door for
+  // you, and nobody owns a single one of your positions either.
   // -------------------------------------------------------------------------
   none: {
-    id: 'none',
+    id: STARTING_PATRON,
+    kind: 'none',
     displayName: 'בלי פטרון',
     shortName: 'עצמאי',
     pitch: 'אף אחד לא הכניס אותך לכאן, ולכן אף אחד לא יכול להוציא אותך. גם אף אחד לא ירים לך טלפון.',
-    pillLabel: 'בלי הטבות · האמינות נשחקת לאט יותר · הכול תלוי בך',
-
+    agendaText: 'אתה לא מחויב לאף עמדה מלבד שלך.',
     eligible: () => true,
-    offerAffinity: () => 1,
-    slotAffinity: () => 1,
-
-    upkeep: null,
-    axesPull: null,
-    obligation: null,
+    party: null,
+    bindingAxes: [],
+    headStart: null,
   },
 
   // -------------------------------------------------------------------------
-  // local_boss — always available, delivers three specific parties, and caps
-  // you at slot 8 forever. The early-game default, and a trap if you stay.
+  // Gatekeepers — a seat on a list, and a line you may not cross.
   // -------------------------------------------------------------------------
-  local_boss: {
-    id: 'local_boss',
-    displayName: 'עסקן מקומי — יוסי דרעי־לוין',
-    shortName: 'העסקן',
-    pitch: 'הוא מכיר כל מתפקד בעיר בשמו הפרטי. הוא גם יודע בדיוק עד איפה הוא מוכן לקדם אותך, וזה לא רחוק.',
-    pillLabel: 'סיכוי גבוה בשלוש מפלגות מסוימות · תקרה קשיחה במקום 8',
 
-    eligible: () => true,
-    offerAffinity: (party) => (LOCAL_BOSS_PARTY_IDS.has(party.id) ? LOCAL_BOSS_OFFER_BOOST : 1),
-    slotAffinity: (party) => (LOCAL_BOSS_PARTY_IDS.has(party.id) ? LOCAL_BOSS_SLOT_BOOST : 1),
+  halikud_branch_boss: {
+    id: 'halikud_branch_boss',
+    kind: 'gatekeeper',
+    displayName: 'ראש סניף בליכוד — יוסי דרעי־לוין',
+    shortName: 'ראש הסניף',
+    pitch: 'הוא מכיר כל מתפקד בעיר בשמו הפרטי. הוא יכניס אותך לרשימה השבוע, ויזכיר לך את זה בכל שבוע אחרי.',
+    agendaText: 'קו ביטחוני נוקשה ושמירה על הסטטוס קוו הדתי — בלי סטיות.',
+    eligible: (player) => player.capital.party_standing >= BRANCH_BOSS_MIN_PARTY_STANDING,
+    party: 'halikud',
+    bindingAxes: ['security', 'religion'],
+    headStart: null,
+  },
 
-    /** No matter how good your capital gets, he cannot get you above this. */
-    bestAttainableSlot: LOCAL_BOSS_BEST_ATTAINABLE_SLOT,
+  shas_council_aide: {
+    id: 'shas_council_aide',
+    kind: 'gatekeeper',
+    displayName: 'מקורב למועצת חכמי התורה — הרב מנשה טולדנו',
+    shortName: 'המקורב',
+    pitch: 'הוא לא מתרשם מסקרים ולא מאולפנים. הוא ראה אותך מגיע לכל אירוע במשך שנתיים, וזה מה שסופרים אצלו.',
+    agendaText: 'עמדה דתית מובהקת, בכל הצבעה, בלי יוצא מן הכלל.',
+    eligible: (player) => player.axes.religion >= COUNCIL_AIDE_MIN_RELIGION_AXIS,
+    party: 'shas',
+    bindingAxes: ['religion'],
+    headStart: null,
+  },
 
-    upkeep: { resources: -LOCAL_BOSS_UPKEEP_RESOURCES },
-    axesPull: { rule_of_law: +LOCAL_BOSS_RULE_OF_LAW_PULL },
-    obligation: null,
+  beyachad_chief_of_staff: {
+    id: 'beyachad_chief_of_staff',
+    kind: 'gatekeeper',
+    displayName: 'ראש מטה בביחד — ליאור בן־שחר',
+    shortName: 'ראש המטה',
+    pitch: 'הוא ראה אותך באולפן והחליט שאתה שלו. מהיום העמדות שלך הן העמדות של המפלגה, וזה קורה לאט מספיק כדי שלא תשים לב.',
+    agendaText: 'קו ביטחוני מוצק ושוק חופשי — בדיוק כמו המפלגה.',
+    // A big party takes you seriously for being known OR for being funded.
+    eligible: (player) =>
+      player.capital.popularity >= CHIEF_OF_STAFF_MIN_POPULARITY ||
+      player.capital.resources >= CHIEF_OF_STAFF_MIN_RESOURCES,
+    party: 'beyachad',
+    bindingAxes: ['security', 'economy'],
+    headStart: null,
+  },
+
+  hademokratim_organiser: {
+    id: 'hademokratim_organiser',
+    kind: 'gatekeeper',
+    displayName: 'מנהלת מטה בדמוקרטים — תמר וייס־להב',
+    shortName: 'מנהלת המטה',
+    pitch: 'היא בנתה שלוש קמפייניות מנצחות ואף אחת מהן לא הייתה שלה. את שלך היא מוכנה לבנות, בתנאי אחד.',
+    agendaText: 'הגנה על ביקורת שיפוטית — בלי לרכך ובלי להתחמק.',
+    eligible: (player) => player.capital.credibility >= ORGANISER_MIN_CREDIBILITY,
+    party: 'hademokratim',
+    bindingAxes: ['rule_of_law'],
+    headStart: null,
   },
 
   // -------------------------------------------------------------------------
-  // donor — buys you the primaries parties. The bill comes due as a card.
+  // Sponsors — no seat, but a running start and an agenda in public.
   // -------------------------------------------------------------------------
-  donor: {
-    id: 'donor',
+
+  business_donor: {
+    id: 'business_donor',
+    kind: 'sponsor',
     displayName: 'תורם — אבישי קלנר',
     shortName: 'התורם',
-    pitch: 'הוא לא מבקש ג׳וב ולא מבקש תפקיד. הוא רק רוצה שתזכור מי מימן לך את הסיבוב הראשון במרכז.',
-    pillLabel: 'סיכוי גבוה יותר במפלגות עם פריימריז · חוב שייגבה בהמשך',
-
-    eligible: (state) => state.capital.resources >= DONOR_MIN_RESOURCES,
-    offerAffinity: (party) => (isPrimariesParty(party) ? DONOR_PRIMARIES_OFFER_BOOST : 1),
-    // Boost times price: he moves you up, and the debt is already priced in.
-    slotAffinity: (party) =>
-      isPrimariesParty(party) ? DONOR_PRIMARIES_SLOT_BOOST * DONOR_SLOT_PRICE : 1,
-
-    upkeep: { credibility: -DONOR_UPKEEP_CREDIBILITY },
-    axesPull: { economy: +DONOR_ECONOMY_PULL },
-    obligation: { cardId: 'donor_calls_in_favour', turnRange: [6, 14] },
-  },
-
-  // -------------------------------------------------------------------------
-  // chairman — the fast lane into Tier A/B, at the cost of your own positions.
-  // -------------------------------------------------------------------------
-  chairman: {
-    id: 'chairman',
-    displayName: 'יו״ר המפלגה',
-    shortName: 'היו״ר',
-    pitch: 'הוא ראה אותך באולפן והחליט שאתה שלו. מהיום הדעות שלך הן הדעות שלו, וזה קורה לאט מספיק כדי שלא תשים לב.',
-    pillLabel: 'קפיצה במפלגות שבהן היו״ר קובע · הדעות שלך נסחפות לקו המפלגה',
-
-    eligible: (state) => !isFounder(state) && state.capital.popularity >= CHAIRMAN_MIN_POPULARITY,
-    offerAffinity: (party) =>
-      isChairmanAppointedTopTier(party) ? CHAIRMAN_APPOINTED_OFFER_BOOST : CHAIRMAN_OFF_TIER_PENALTY,
-    slotAffinity: (party) =>
-      isChairmanAppointedTopTier(party) ? CHAIRMAN_APPOINTED_SLOT_BOOST : CHAIRMAN_OFF_TIER_PENALTY,
-
-    upkeep: { credibility: -CHAIRMAN_UPKEEP_CREDIBILITY },
-    // Closes a fixed fraction of the gap to the party line every single turn.
-    // Nothing else in the game moves a player's axes this hard.
-    axesPull: (state) => {
-      const party = PARTIES[state.party];
-      if (!party) return null;
-      const pull = {};
-      for (const [axisKey, partyValue] of Object.entries(party.axes)) {
-        pull[axisKey] = (partyValue - state.axes[axisKey]) * CHAIRMAN_AXES_PULL_RATE;
-      }
-      return pull;
+    pitch: 'הוא לא מבקש ג׳וב ולא מבקש תפקיד. הוא רק רוצה שתזכור מי מימן לך את הסיבוב הראשון.',
+    agendaText: 'צמיחה, שוק חופשי, פחות רגולציה — ואתה אומר את זה בקול.',
+    eligible: (player) => player.capital.resources >= DONOR_MIN_RESOURCES,
+    party: null,
+    bindingAxes: ['economy'],
+    agendaAxes: { economy: +1 },
+    headStart: {
+      capital: { resources: +22, popularity: +6 },
+      segments: { secular_center: +1.0 },
     },
-    obligation: null,
   },
 
-  // -------------------------------------------------------------------------
-  // media — broad, and amplifies everything that happens to you in both
-  // directions. This one is volatility, not cost.
-  // -------------------------------------------------------------------------
-  media: {
-    id: 'media',
+  labour_federation: {
+    id: 'labour_federation',
+    kind: 'sponsor',
+    displayName: 'ועד עובדים ארצי — סיגלית אוחיון',
+    shortName: 'הוועד',
+    pitch: 'היא הוציאה שלושה מפעלים לשביתה וסגרה הסכם שאיש לא האמין בו. היא יודעת לספור קולות באולם, ותספור גם את שלך.',
+    agendaText: 'הגנה על העובדים ועל הפריפריה — לפני כל שיקול תקציבי.',
+    eligible: (player) => player.capital.party_standing >= FEDERATION_MIN_PARTY_STANDING,
+    party: null,
+    bindingAxes: ['economy'],
+    agendaAxes: { economy: -1 },
+    headStart: {
+      capital: { party_standing: +10 },
+      segments: { periphery_general: +2.2, traditional_mizrahi: +1.4 },
+    },
+  },
+
+  broadcast_backer: {
+    id: 'broadcast_backer',
+    kind: 'sponsor',
     displayName: 'גורם תקשורתי — שיר אבידן',
     shortName: 'התקשורת',
     pitch: 'היא לא תבקש ממך כלום. היא פשוט תדאג שכל מה שתעשה יגיע למהדורה — כולל מה שלא רצית שיגיע.',
-    pillLabel: 'שיפור רחב בכל המפלגות · כל רווח וכל מפולת מוגברים',
-
-    eligible: (state) => state.capital.popularity >= MEDIA_MIN_POPULARITY,
-    offerAffinity: () => MEDIA_OFFER_BOOST,
-    slotAffinity: () => MEDIA_SLOT_BOOST,
-
-    /** Applied to every capital delta a card option lands, gain or loss. */
-    capitalAmplification: {
-      popularity: MEDIA_CAPITAL_AMPLIFICATION,
-      credibility: MEDIA_CAPITAL_AMPLIFICATION,
+    agendaText: 'עמידה על ביקורת שיפוטית ועל חופש העיתונות, בכל ראיון.',
+    eligible: (player) => player.capital.popularity >= BROADCAST_MIN_POPULARITY,
+    party: null,
+    bindingAxes: ['rule_of_law'],
+    agendaAxes: { rule_of_law: -1 },
+    headStart: {
+      capital: { popularity: +18 },
+      segments: { secular_center: +1.8, young_reservists: +1.0 },
     },
-
-    upkeep: { credibility: -MEDIA_UPKEEP_CREDIBILITY },
-    axesPull: null,
-    obligation: null,
-  },
-
-  // -------------------------------------------------------------------------
-  // sector_leader — the loyalty path. Earned by staying put, and it locks you
-  // where you stand.
-  //
-  // Deliberately closed to anyone arriving from `chairman` or `media`: without
-  // that exclusion, dropping down from a high tier into the loyalty bonus is a
-  // free exploit (CLAUDE.md §4.2).
-  // -------------------------------------------------------------------------
-  sector_leader: {
-    id: 'sector_leader',
-    displayName: 'מנהיג מגזרי — הרב מנשה טולדנו',
-    shortName: 'המנהיג',
-    pitch: 'הוא לא מתרשם מסקרים ולא מאולפנים. הוא ראה אותך מגיע לכל אירוע במשך שנתיים, וזה מה שסופרים אצלו.',
-    pillLabel: 'עוצמה גדולה במפלגה שאתה כבר בה · נועל אותך שם ובמגזר אחד',
-
-    eligible: (state) =>
-      state.patron !== 'chairman' &&
-      state.patron !== 'media' &&
-      state.partyTurns >= SECTOR_LEADER_MIN_PARTY_TURNS &&
-      peakAffinity(state) >= SECTOR_LEADER_MIN_SEGMENT_AFFINITY,
-
-    offerAffinity: (party, state) =>
-      party.id === state.party ? SECTOR_LEADER_OWN_PARTY_OFFER_BOOST : SECTOR_LEADER_OTHER_PARTY_PENALTY,
-    slotAffinity: (party, state) =>
-      party.id === state.party ? SECTOR_LEADER_OWN_PARTY_SLOT_BOOST : SECTOR_LEADER_OTHER_PARTY_PENALTY,
-
-    upkeep: { resources: -SECTOR_LEADER_UPKEEP_RESOURCES },
-    axesPull: { religion: +SECTOR_LEADER_RELIGION_PULL },
-    obligation: null,
   },
 };

@@ -18,6 +18,19 @@ export const ACT_SCHEDULE = [
 /** The last turn that draws a card. Election night resolves after it. */
 export const FINAL_TURN = 24;
 
+/**
+ * Election day, and how much of the calendar one turn burns. The HUD counts
+ * down to this date, so a run covers the 24 weeks before the election.
+ */
+export const ELECTION_DATE_ISO = '2026-10-27';
+export const DAYS_PER_TURN = 7;
+
+/**
+ * How many parties the slot HUD shows. A fourteen-row table is not glanceable,
+ * and the slot table only works as a score if it can be read at a glance.
+ */
+export const SLOT_HUD_ROW_LIMIT = 5;
+
 // ---------------------------------------------------------------------------
 // Player quantity bounds
 // ---------------------------------------------------------------------------
@@ -79,62 +92,74 @@ export const UNLOCKED_CARD_WEIGHT_MULTIPLIER = 3.0;
 
 // ---------------------------------------------------------------------------
 // Patrons
+//
+// Two kinds, and neither charges rent. The old upkeep/axesPull model is gone:
+// a patron no longer drains you every turn, it BINDS you. Whoever backs you
+// names the axes you are held to, and the M3 stance machinery does the rest —
+// deviate from a binding axis and the existing flip detection fires, voters
+// leave, and the run says why. There is no parallel punishment system.
+//
+//   gatekeeper — puts you straight onto an existing party's list, and holds you
+//                to that party's line on the axes it names.
+//   sponsor    — no party, but a head start in voters or capital, and a public
+//                agenda you are held to just as tightly.
 // ---------------------------------------------------------------------------
 
 export const STARTING_PATRON = 'none';
 
-/** Changing who owns you is not free. */
+/**
+ * How far a gatekeeper drags your slot from what your capital is worth toward
+ * the best slot their party has open. 0 means they spend nothing on you and the
+ * seat is worthless on a big list; 1 means the seat is free and capital stops
+ * mattering, which erases the offer game for anyone who takes one.
+ */
+export const GATEKEEPER_SLOT_CONCESSION = 0.5;
+
+/**
+ * The seat a gatekeeper aims for, as a fraction of what their party is polling.
+ * 0.6 means "comfortably inside the list, not at the very top".
+ *
+ * Relative to the party's SIZE on purpose. Anchoring on each party's best open
+ * slot instead made the deal worth wildly different amounts depending on who
+ * was offering — slot 6 on a twelve-seat list against slot 11 on a sixteen-seat
+ * one — and handed the run to whichever archetype could reach the good door.
+ */
+export const GATEKEEPER_SEAT_DEPTH = 0.6;
+
+/** Dropping a patron mid-run. Changing who owns you was never free. */
 export const PATRON_SWITCH_CREDIBILITY_COST = 12;
 
-/** Background credibility erosion, every turn, for everyone. */
-export const CREDIBILITY_DECAY_PER_TURN = 0.5;
-
-/** Running unpatroned shelters you from part of that decay. */
-export const UNPATRONED_CREDIBILITY_DECAY_RELIEF = 0.5;
-
-// The gates. These ARE the progression ladder (CLAUDE.md §4.2).
+// Eligibility gates. These ARE the progression ladder (CLAUDE.md §4.2).
+export const BRANCH_BOSS_MIN_PARTY_STANDING = 20;
+export const COUNCIL_AIDE_MIN_RELIGION_AXIS = 0.35;
+export const CHIEF_OF_STAFF_MIN_POPULARITY = 40;
+/** Or buy your way to the same table. A big party notices either kind of asset. */
+export const CHIEF_OF_STAFF_MIN_RESOURCES = 60;
+export const ORGANISER_MIN_CREDIBILITY = 50;
 export const DONOR_MIN_RESOURCES = 25;
-export const CHAIRMAN_MIN_POPULARITY = 45;
-export const MEDIA_MIN_POPULARITY = 60;
-export const SECTOR_LEADER_MIN_PARTY_TURNS = 8;
-export const SECTOR_LEADER_MIN_SEGMENT_AFFINITY = 0.7;
+export const FEDERATION_MIN_PARTY_STANDING = 25;
+export const BROADCAST_MIN_POPULARITY = 45;
 
-// Patron affinity factors. Named here, composed in data/patrons.js so the
-// boost and the price stay side by side at the point of use.
-export const LOCAL_BOSS_OFFER_BOOST = 1.6;
-export const LOCAL_BOSS_SLOT_BOOST = 1.15;
-export const LOCAL_BOSS_BEST_ATTAINABLE_SLOT = 8; // the ceiling he caps you at
+// ---------------------------------------------------------------------------
+// Betrayal
+//
+// The patron who put you where you are comes back and asks you to stand
+// somewhere else. Accepting flips your binding axes, which turns every position
+// you already took on them into a flip — the M3 defection code fires on its own.
+// Refusing costs you the patron, and can cost you the run.
+// ---------------------------------------------------------------------------
 
-export const DONOR_PRIMARIES_OFFER_BOOST = 1.5;
-export const DONOR_PRIMARIES_SLOT_BOOST = 1.12;
-export const DONOR_SLOT_PRICE = 0.94; // the debt, priced into the slot
+/** Share of runs in which the patron turns on the player at all. */
+export const PATRON_BETRAYAL_CHANCE = 0.25;
 
-export const CHAIRMAN_APPOINTED_OFFER_BOOST = 1.7;
-export const CHAIRMAN_APPOINTED_SLOT_BOOST = 1.30;
-export const CHAIRMAN_OFF_TIER_PENALTY = 0.85; // he has no pull outside Tier A/B
+/** Inclusive turn range the betrayal is scheduled into. Mid-run, never turn 1. */
+export const BETRAYAL_TURN_RANGE = [9, 18];
 
-export const MEDIA_OFFER_BOOST = 1.25;
-export const MEDIA_SLOT_BOOST = 1.18;
-export const MEDIA_CAPITAL_AMPLIFICATION = 1.4; // in both directions
-
-export const SECTOR_LEADER_OWN_PARTY_OFFER_BOOST = 2.2;
-export const SECTOR_LEADER_OWN_PARTY_SLOT_BOOST = 1.35;
-export const SECTOR_LEADER_OTHER_PARTY_PENALTY = 0.4; // he locks you where you are
-
-// Per-turn upkeep, as positive magnitudes. Written negated at the point of use
-// in data/patrons.js so the sign is visible next to the meter it drains.
-export const LOCAL_BOSS_UPKEEP_RESOURCES = 1.0;
-export const DONOR_UPKEEP_CREDIBILITY = 1.0;
-export const CHAIRMAN_UPKEEP_CREDIBILITY = 1.5;
-export const MEDIA_UPKEEP_CREDIBILITY = 1.0;
-export const SECTOR_LEADER_UPKEEP_RESOURCES = 0.5;
-
-// Per-turn ideological drift toward the patron's position.
-export const DONOR_ECONOMY_PULL = 0.02;
-export const LOCAL_BOSS_RULE_OF_LAW_PULL = 0.01;
-/** Fraction of the gap to the party line closed every turn. This one bites. */
-export const CHAIRMAN_AXES_PULL_RATE = 0.06;
-export const SECTOR_LEADER_RELIGION_PULL = 0.015;
+/**
+ * Chance that refusing gets a fabricated story run against you, which ends the
+ * run. The betrayal card reads this directly so the number lives in one place.
+ */
+export const FAKE_NEWS_CHANCE = 0.30;
 
 // ---------------------------------------------------------------------------
 // Offer chance — does this party want you at all?
@@ -323,3 +348,110 @@ export const BALANCE_MAX_TOP_TIER_SPREAD = 0.20;
  */
 export const BALANCE_MIN_TOP_TIER_RATE = 0.10;
 export const BALANCE_MAX_TOP_TIER_RATE = 0.75;
+
+// ---------------------------------------------------------------------------
+// Stances, integrity and defection
+//
+// Replaces abstract credibility damage with something the player can watch
+// happen. Contradicting a position you took in public, or piling up deals that
+// serve you and nobody else, makes actual voters leave — and the run says which
+// voters and why.
+//
+// `credibility` still exists and still moves; it simply stopped being shown.
+// It buffers scandals inside the engine. Defection is what the player sees.
+// ---------------------------------------------------------------------------
+
+/** How many `integrity: 'dirty'` choices pile up before voters act on them. */
+export const DIRTY_THRESHOLD = 3;
+
+/**
+ * Segment delta points removed from a punishing segment when the player is
+ * caught contradicting a stance they took. Scaled per segment by the `flip`
+ * weight below, so the same flip costs different amounts in different places.
+ */
+export const FLIP_DEFECTION_BASE = 1.8;
+
+/** The same, for a defection triggered by accumulated dirty dealing. */
+export const DIRTY_DEFECTION_BASE = 1.5;
+
+/**
+ * A defection only moves a segment whose weight for that reason clears this.
+ * Keeps a defection legible: three or four segments move, not all eight.
+ */
+export const DEFECTION_MINIMUM_WEIGHT = 0.55;
+
+/**
+ * How heavily each segment weighs the two failures, 0…1.
+ *
+ * These are NOT moral scores and must never be presented as any electorate
+ * being more or less honest than another. They model what an electorate votes
+ * ON: some weigh ideological consistency most heavily, others weigh delivery
+ * and access, and a voter who cares about delivery is not thereby indifferent
+ * to it — they are simply answering a different question at the ballot box.
+ *
+ * Nothing sits at zero, and nothing sits at one for both. A caricature here
+ * would be both bad modelling and a breach of CLAUDE.md §6.
+ */
+export const SEGMENT_PUNISH_WEIGHTS = {
+  secular_center: { flip: 1.0, dirty: 0.9 },
+  young_reservists: { flip: 0.9, dirty: 0.8 },
+  religious_zionist: { flip: 0.8, dirty: 0.5 },
+  haredi: { flip: 0.6, dirty: 0.3 },
+  arab: { flip: 0.5, dirty: 0.6 },
+  russian_speaking: { flip: 0.5, dirty: 0.4 },
+  traditional_mizrahi: { flip: 0.4, dirty: 0.3 },
+  periphery_general: { flip: 0.4, dirty: 0.5 },
+};
+
+// ---------------------------------------------------------------------------
+// Post-turn feedback beat
+//
+// After a decision the run shows what moved, then carries on by itself. The
+// player never clicks to dismiss it — a click only skips ahead.
+// ---------------------------------------------------------------------------
+
+/** A routine turn. Long enough to read two lines and watch the bars move. */
+export const FEEDBACK_BEAT_MS = 2400;
+
+/** A turn where voters walked out. Worth holding on. */
+export const FEEDBACK_BEAT_DEFECTION_MS = 4200;
+
+/** Bar and ticker animation. Must finish inside the shorter beat above. */
+export const FEEDBACK_ANIMATION_MS = 700;
+
+/** A bloc has to move at least this much before the beat bothers naming it. */
+export const BLOC_MOVEMENT_NOTICE_THRESHOLD = 0.002;
+
+// ---------------------------------------------------------------------------
+// Option shapes: certain, or a two-branch gamble
+//
+// Options no longer carry a `pill`. The player follows their read of the
+// situation, not a summary of where it pushes. What replaced it is honest odds:
+// a gamble shows both branches with real percentages and real outcomes, and a
+// certain option states its result flatly.
+// ---------------------------------------------------------------------------
+
+/** Every gamble has exactly this many branches, and their chances sum to 100. */
+export const BRANCHES_PER_GAMBLE = 2;
+export const BRANCH_CHANCE_TOTAL = 100;
+
+/**
+ * Share of all branches in the deck that end the run on the spot.
+ *
+ * A run-ender is rare on purpose: it should be the thing one card in the whole
+ * deck can do to you, not a hazard you meet every few turns. Note that the
+ * SHARE OF RUNS ending early runs far above this figure, because a run takes
+ * several gambles and the chances compound — validate.js reports both.
+ *
+ * At a small deck this rate is coarse: one branch either side moves it by
+ * 100/branchCount points, so validate.js reports the achievable band rather
+ * than pretending an exact match is available.
+ */
+export const DEAD_END_TARGET_RATE = 0.01;
+
+/**
+ * Segment points weigh roughly this much against one capital point when
+ * deciding whether a branch reads as a good outcome or a bad one. Presentation
+ * only — it picks the colour of the branch line, nothing else.
+ */
+export const BRANCH_VALENCE_SEGMENT_WEIGHT = 4;

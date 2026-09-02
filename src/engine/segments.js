@@ -23,6 +23,7 @@ import {
   AFFINITY_MINIMUM,
   AFFINITY_MAXIMUM,
 } from '../data/tuning.js';
+import SEGMENTS, { DISPLAY_BLOCS } from '../data/segments.js';
 import { clamp, playerPartyId, SEGMENT_KEYS } from './state.js';
 
 /** Rescales a party distribution to sum to 1.0. */
@@ -151,4 +152,88 @@ export function withDisplacedParty(state, displacedPartyId, replacementPartyId, 
 /** A party's share within one segment. */
 export function supportInSegment(state, segmentKey, partyId) {
   return state.segments[segmentKey][partyId] ?? 0;
+}
+
+// ---------------------------------------------------------------------------
+// Display blocs
+//
+// The engine always works on all eight segments — the election maths needs the
+// resolution. Blocs exist so the player tracks three bars instead of eight.
+// The grouping is a `displayBloc` field in data/segments.js and can be retuned
+// there without touching a line of UI code.
+// ---------------------------------------------------------------------------
+
+/**
+ * The share of each bloc's vote currently going to the player's list, weighted
+ * by segment size within the bloc.
+ *
+ * @returns {{ blocId: string, displayName: string, support: number,
+ *             weight: number, segments: string[] }[]} in DISPLAY_BLOCS order
+ */
+export function blocSupport(state) {
+  const partyId = playerPartyId(state);
+  const totals = new Map(
+    DISPLAY_BLOCS.map((bloc) => [
+      bloc.id,
+      { blocId: bloc.id, displayName: bloc.displayName, weight: 0, weightedSupport: 0, segments: [] },
+    ]),
+  );
+
+  for (const segmentKey of SEGMENT_KEYS) {
+    const segment = SEGMENTS[segmentKey];
+    const bucket = totals.get(segment.displayBloc);
+    if (!bucket) continue;
+    bucket.weight += segment.weight;
+    bucket.segments.push(segmentKey);
+    if (partyId) {
+      bucket.weightedSupport += segment.weight * (state.segments[segmentKey][partyId] ?? 0);
+    }
+  }
+
+  return [...totals.values()].map((bucket) => ({
+    blocId: bucket.blocId,
+    displayName: bucket.displayName,
+    weight: bucket.weight,
+    segments: bucket.segments,
+    support: bucket.weight > 0 ? bucket.weightedSupport / bucket.weight : 0,
+  }));
+}
+
+/**
+ * Weighted mean affinity per bloc. This is what the bars show before the player
+ * has a list to put votes on — standing built, not votes held.
+ */
+export function blocAffinity(state) {
+  return blocSupport(state).map((bloc) => {
+    let weighted = 0;
+    for (const segmentKey of bloc.segments) {
+      weighted += SEGMENTS[segmentKey].weight * state.affinity[segmentKey];
+    }
+    return { ...bloc, affinity: bloc.weight > 0 ? weighted / bloc.weight : 0 };
+  });
+}
+
+/**
+ * What the three bloc bars should actually show right now.
+ *
+ * Before the player has a list there is no vote to hold, so support is zero
+ * across the board and the bars say nothing for the first several turns. What
+ * IS moving in those turns is affinity — standing built with a bloc that will
+ * be cashed in later — so that is what the bars show until there is a list to
+ * put votes on, and the caller labels them accordingly.
+ *
+ * Affinity runs -1…+1 and is mapped onto 0…1 so both modes share one scale.
+ *
+ * @returns {{ blocId, displayName, weight, value: number, mode: 'support'|'affinity' }[]}
+ */
+export function blocReadout(state) {
+  const holdsAList = playerPartyId(state) !== null;
+  if (holdsAList) {
+    return blocSupport(state).map((bloc) => ({ ...bloc, value: bloc.support, mode: 'support' }));
+  }
+  return blocAffinity(state).map((bloc) => ({
+    ...bloc,
+    value: (bloc.affinity + 1) / 2,
+    mode: 'affinity',
+  }));
 }

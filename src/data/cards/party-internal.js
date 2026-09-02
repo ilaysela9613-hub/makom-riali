@@ -1,6 +1,6 @@
 // פוליטיקה פנים־מפלגתית — מרכז המפלגה, פריימריז, משמעת סיעתית.
 //
-// PLACEHOLDER CONTENT — see the note at the top of security.js.
+// PLACEHOLDER CONTENT — see the schema note at the top of security.js.
 //
 // This is the deck where the satire lives: the machine, not a camp
 // (SPEC §11.4). Everything here should be absurd to everyone.
@@ -19,26 +19,34 @@ export default [
     options: [
       {
         label: 'לקחת את המתפקדים ולהודות יפה',
-        pill: 'קפיצה במעמד המפלגתי · מחיר כבד באמינות',
-        capital: { party_standing: +10, credibility: -8 },
+        integrity: 'dirty',
         unlocks: ['list_reserved_slot_demand'],
+        certainText: 'קפיצה גדולה במעמד בסיעה · החוב נרשם',
+        capital: { party_standing: +10, credibility: -8 },
       },
       {
         label: 'לסרב בנימוס ולבנות רשימה משלך',
-        pill: 'מחזק באמינות · המעמד המפלגתי נבנה לאט ובכסף',
+        certainText: 'בנייה איטית ויקרה · אף אחד לא מחזיק בך',
         capital: { credibility: +6, party_standing: -3, resources: -4 },
       },
       {
         label: 'לקחת, ולספר על זה בעצמך לפני שמישהו אחר יספר',
-        pill: 'הימור · מרוויח בשני הכיוונים אם זה עובר · מפולת אם לא',
-        risk: 0.40,
-        capital: { party_standing: +7, popularity: +3 },
-        onFail: {
-          capital: { credibility: -12 },
-          flags: ['known_as_dealmaker'],
-          text: 'הסיפור התגלגל אחרת ממה שתכננת. עכשיו מצטטים אותך בתור מי שסיפר, לא בתור מי שסירב.',
-        },
+        integrity: 'dirty',
         unlocks: ['list_reserved_slot_demand'],
+        branches: [
+          {
+            chance: 55,
+            text: 'הכנות עבדה — מעמד בסיעה ופופולריות עולים יחד',
+            capital: { party_standing: +8, popularity: +6 },
+          },
+          {
+            chance: 45,
+            text: 'מצטטים אותך כמי שסיפר, לא כמי שסירב',
+            capital: { party_standing: +3, popularity: -7 },
+            segments: { secular_center: -1.2 },
+            flags: ['known_as_dealmaker'],
+          },
+        ],
       },
     ],
   },
@@ -56,12 +64,22 @@ export default [
     options: [
       {
         label: 'להשקיע את כל מה שיש לך',
-        pill: 'קפיצה במעמד המפלגתי · מרוקן את הקופה',
-        capital: { party_standing: +9, resources: -14 },
+        branches: [
+          {
+            chance: 60,
+            text: 'הקמפיין הביא — קפיצה גדולה במעמד בסיעה',
+            capital: { party_standing: +12, resources: -14 },
+          },
+          {
+            chance: 40,
+            text: 'הכסף נשרף ורוב הטפסים לא הוגשו בזמן',
+            capital: { party_standing: +2, resources: -14 },
+          },
+        ],
       },
       {
         label: 'להשקיע במידה ולשמור מזומן לקמפיין',
-        pill: 'עלייה קטנה · שומר על המשאבים',
+        certainText: 'עלייה קטנה במעמד · הקופה נשמרת',
         capital: { party_standing: +3, resources: -4 },
       },
     ],
@@ -85,13 +103,32 @@ export default [
     options: [
       {
         label: 'להצביע עם הסיעה',
-        pill: 'מחזק במעמד המפלגתי · מחיר באמינות',
+        integrity: 'dirty',
+        certainText: 'עלייה במעמד בסיעה',
         capital: { party_standing: +6, credibility: -5 },
       },
       {
         label: 'לא להגיע לאולם',
-        pill: 'מחיר קטן משני הצדדים · אף אחד לא מרוצה',
+        certainText: 'אף אחד לא מרוצה',
         capital: { party_standing: -3, credibility: -1 },
+      },
+      {
+        label: 'להצביע נגד ולהודיע על כך מראש',
+        branches: [
+          {
+            chance: 85,
+            text: 'יצאת כמי שיש לו עמוד שדרה — עלייה בפופולריות',
+            capital: { popularity: +9, party_standing: -7 },
+            segments: { secular_center: +1.1 },
+          },
+          {
+            chance: 15,
+            text: 'הוצאת מהסיעה — הריצה שלך נגמרת כאן',
+            endsRun: true,
+            capital: { party_standing: -20 },
+            flags: ['expelled_from_faction'],
+          },
+        ],
       },
     ],
   },
@@ -109,14 +146,25 @@ export default [
     options: [
       {
         label: 'להסכים ולהתמקח על מקום אחר',
-        pill: 'שומר על שקט פנימי · מוריד אותך ברשימה',
+        integrity: 'dirty',
+        certainText: 'שקט פנימי · ירדת ברשימה',
         capital: { party_standing: +4, popularity: -3 },
       },
       {
         label: 'להתעמת ולדרוש הכרעה של היו״ר',
-        pill: 'מחזק באמינות · מחיר מיידי במעמד המפלגתי',
-        capital: { credibility: +4, party_standing: -5 },
-        segments: { religious_zionist: -0.8 },
+        branches: [
+          {
+            chance: 45,
+            text: 'היו״ר פסק לטובתך — המקום שלך מובטח',
+            capital: { party_standing: +8, popularity: +3 },
+          },
+          {
+            chance: 55,
+            text: 'היו״ר פסק נגדך, וכולם ראו',
+            capital: { party_standing: -9 },
+            segments: { religious_zionist: -0.8 },
+          },
+        ],
       },
     ],
   },
@@ -134,14 +182,25 @@ export default [
     options: [
       {
         label: 'להסיר את הסעיף ולשמור על הקואליציה',
-        pill: 'שומר על היציבות · מחיר כבד באמינות',
+        certainText: 'הקואליציה שרדה · הבוחרים שלך ראו',
         capital: { credibility: -8, party_standing: +5 },
+        segments: { periphery_general: -1.1 },
       },
       {
         label: 'לעמוד על הסעיף',
-        pill: 'מחזק באמינות ובפריפריה · מסכן את הקואליציה',
-        capital: { credibility: +7, party_standing: -6 },
-        segments: { periphery_general: +1.0 },
+        branches: [
+          {
+            chance: 55,
+            text: 'האיום התפוגג — הפריפריה זוקפת לך את זה',
+            capital: { credibility: +7, popularity: +5 },
+            segments: { periphery_general: +1.6 },
+          },
+          {
+            chance: 45,
+            text: 'הקואליציה נפלה, והאצבע מופנית אליך',
+            capital: { party_standing: -12, popularity: -4 },
+          },
+        ],
       },
     ],
   },

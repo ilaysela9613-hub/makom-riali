@@ -7,14 +7,17 @@
 //
 //   offerChance(party, player) = base(party.tier, player.capital)
 //                              × party.offerAffinity(player)
-//                              × patron.offerAffinity(party, player)
 //
 //   slotValue(party, player)   = base(party.openSlots, player.capital)
 //                              × party.slotAffinity(player)
-//                              × patron.slotAffinity(party, player)
+//
+// M4 removed the patron leg of both chains. A patron no longer nudges the odds
+// from the outside: a gatekeeper simply puts you on a list, and a sponsor gives
+// you a head start and holds you to an agenda. The two chains stay separate
+// because party modifiers still have to move one without the other.
 //
 // Nothing here is stored on the run state. The slot table is derived, every
-// time, from capital + party + patron.
+// time, from capital and party.
 
 import {
   TIER_BASE_OFFER_CHANCE,
@@ -31,7 +34,7 @@ import {
 } from '../data/tuning.js';
 import { clamp, withCapital } from './state.js';
 import { activeParties, rosterParties, joinParty } from './party.js';
-import { patronOfferAffinity, patronSlotAffinity, patronBestAttainableSlot } from './patron.js';
+
 import { poll } from './election.js';
 import { deriveRng } from './rng.js';
 
@@ -55,8 +58,7 @@ export function capitalScore(capital, weights) {
 export function offerChance(state, party) {
   const base = TIER_BASE_OFFER_CHANCE[party.tier] * capitalScore(state.capital, OFFER_CAPITAL_WEIGHTS);
   const partyMultiplier = typeof party.offerAffinity === 'function' ? party.offerAffinity(state) : 1;
-  const patronMultiplier = patronOfferAffinity(state, party);
-  return clamp(base * partyMultiplier * patronMultiplier, OFFER_CHANCE_MINIMUM, OFFER_CHANCE_MAXIMUM);
+  return clamp(base * partyMultiplier, OFFER_CHANCE_MINIMUM, OFFER_CHANCE_MAXIMUM);
 }
 
 /**
@@ -73,12 +75,7 @@ export function slotValue(state, party) {
   const baseSlot = worstOpenSlot - score * (worstOpenSlot - bestOpenSlot);
 
   const partyMultiplier = typeof party.slotAffinity === 'function' ? party.slotAffinity(state) : 1;
-  const patronMultiplier = patronSlotAffinity(state, party);
-
-  const slot = Math.round(baseSlot / (partyMultiplier * patronMultiplier));
-  const patronCeiling = patronBestAttainableSlot(state);
-  const floor = patronCeiling === null ? BEST_POSSIBLE_SLOT : Math.max(BEST_POSSIBLE_SLOT, patronCeiling);
-  return Math.max(floor, slot);
+  return Math.max(BEST_POSSIBLE_SLOT, Math.round(baseSlot / partyMultiplier));
 }
 
 /**

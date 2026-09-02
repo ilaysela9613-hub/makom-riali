@@ -1,7 +1,6 @@
 // שלטון חוק ומערכת המשפט.
 //
-// PLACEHOLDER CONTENT — see the note at the top of security.js, including the
-// balance rule: an option is a trade, not a gift.
+// PLACEHOLDER CONTENT — see the schema note at the top of security.js.
 //
 // NEUTRALITY (CLAUDE.md §6.4): this deck stays structural — appointments,
 // procedure, committee composition, oversight powers. No card here attributes a
@@ -26,23 +25,36 @@ export default [
     options: [
       {
         label: 'לתמוך בהרחבת המשקל של הדרג הנבחר',
-        pill: 'מחזק בציוני־דתי ובמעמד המפלגתי · מחיר באמינות ובמרכז החילוני',
+        certainText: 'ציוני־דתי עובר אליך · המרכז החילוני עוזב',
+        stance: { axis: 'rule_of_law', direction: +1 },
         axes: { rule_of_law: +0.10 },
         capital: { party_standing: +6, credibility: -4 },
         segments: { religious_zionist: +1.5, secular_center: -1.4 },
       },
       {
         label: 'להתנגד ולשמור על ההרכב הקיים',
-        pill: 'מחזק באמינות ובמרכז החילוני · מחיר במעמד המפלגתי',
+        certainText: 'המרכז החילוני עובר אליך · מחיר במעמד בסיעה',
+        stance: { axis: 'rule_of_law', direction: -1 },
         axes: { rule_of_law: -0.10 },
         capital: { credibility: +6, party_standing: -6 },
         segments: { secular_center: +1.6 },
       },
       {
         label: 'להציע מנגנון הסכמה רחבה',
-        pill: 'רווח קטן באמינות · שני הצדדים יזכרו שלא היית איתם',
-        capital: { credibility: +3, party_standing: -2 },
-        segments: { secular_center: +0.4, religious_zionist: -0.4 },
+        branches: [
+          {
+            chance: 35,
+            text: 'הפשרה התקבלה — שני הצדדים חייבים לך',
+            capital: { popularity: +7, party_standing: +4 },
+            segments: { secular_center: +1.0 },
+          },
+          {
+            chance: 65,
+            text: 'שני הצדדים דחו אותה, ושניהם זוכרים שניסית',
+            capital: { party_standing: -6, popularity: -2 },
+            segments: { secular_center: +0.3, religious_zionist: -0.5 },
+          },
+        ],
       },
     ],
   },
@@ -60,14 +72,16 @@ export default [
     options: [
       {
         label: 'לתמוך בהרחבה',
-        pill: 'מחזק באמינות ובמרכז החילוני · מסבך אותך בקואליציה',
+        certainText: 'המרכז החילוני עובר אליך · הקואליציה תזכור',
+        stance: { axis: 'rule_of_law', direction: -1 },
         axes: { rule_of_law: -0.08 },
         capital: { credibility: +6, party_standing: -5 },
         segments: { secular_center: +1.1 },
       },
       {
         label: 'להתנגד ולומר שזה משתק את הממשל',
-        pill: 'מחזק במעמד המפלגתי · מחיר באמינות · פוגע במרכז החילוני',
+        certainText: 'עלייה במעמד בסיעה · המרכז החילוני עוזב',
+        stance: { axis: 'rule_of_law', direction: +1 },
         axes: { rule_of_law: +0.06 },
         capital: { party_standing: +5, credibility: -4 },
         segments: { secular_center: -1.0 },
@@ -88,14 +102,14 @@ export default [
     options: [
       {
         label: 'לתמוך בהקמת הגוף',
-        pill: 'מחזק בחברה הערבית ובמרכז החילוני · מחיר במעמד המפלגתי',
+        certainText: 'החברה הערבית והמרכז החילוני עוברים אליך · מחיר בסיעה',
         axes: { rule_of_law: -0.07 },
         capital: { credibility: +4, party_standing: -3 },
         segments: { arab: +1.4, secular_center: +0.8 },
       },
       {
         label: 'להתנגד ולתמוך בחיזוק הבקרה הפנימית',
-        pill: 'מחזק בציוני־דתי · מחיר באמינות · פוגע בחברה הערבית',
+        certainText: 'ציוני־דתי עובר אליך · החברה הערבית עוזבת',
         capital: { party_standing: +4, credibility: -3 },
         segments: { arab: -1.2, religious_zionist: +0.7 },
       },
@@ -119,24 +133,29 @@ export default [
     options: [
       {
         label: 'לתמוך ברוב המיוחד',
-        pill: 'מחזק חזק באמינות · שני הצדדים יראו בך בעיה',
+        certainText: 'שני הצדדים רואים בך בעיה',
         capital: { credibility: +7, party_standing: -6 },
       },
       {
         label: 'ללכת עם עמדת הסיעה',
-        pill: 'מחזק במעמד המפלגתי · מחיר באמינות',
+        certainText: 'עלייה במעמד בסיעה · שום דבר אחר לא זז',
         capital: { party_standing: +5, credibility: -4 },
       },
       {
         label: 'ליזום ניסוח פשרה ולהוביל אותו בעצמך',
-        pill: 'הימור · קפיצה גדולה בפופולריות אם זה נתפס · שקיעה אם לא',
-        risk: 0.40,
-        capital: { popularity: +10, party_standing: -5 },
-        segments: { secular_center: +1.2 },
-        onFail: {
-          capital: { party_standing: -11, popularity: -5 },
-          text: 'הפשרה שלך נדחתה משני הכיוונים באותה ישיבה. עכשיו מצטטים אותה בתור מה שלא עובד.',
-        },
+        branches: [
+          {
+            chance: 40,
+            text: 'הניסוח שלך עבר — קפיצה גדולה בפופולריות',
+            capital: { popularity: +12, party_standing: +3 },
+            segments: { secular_center: +1.2 },
+          },
+          {
+            chance: 60,
+            text: 'נדחה משני הכיוונים באותה ישיבה',
+            capital: { party_standing: -11, popularity: -5 },
+          },
+        ],
       },
     ],
   },
@@ -154,12 +173,12 @@ export default [
     options: [
       {
         label: 'לאמץ את ההצעה ולדחוף אותה בעצמך',
-        pill: 'מחזק באמינות · צורך זמן ומשאבים',
+        certainText: 'עולה זמן וכסף · אף אחד לא ישים לב עד שיהיה מאוחר',
         capital: { credibility: +6, resources: -5 },
       },
       {
         label: 'להשאיר אותה למישהו אחר',
-        pill: 'לא קורה כלום · הזמן רץ',
+        certainText: 'ללא השפעה',
         capital: { party_standing: +2, credibility: -2 },
       },
     ],

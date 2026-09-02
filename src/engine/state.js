@@ -109,10 +109,36 @@ export function createRun(seed, archetypeId) {
 
     patron: STARTING_PATRON,
     patronTurns: 0,
-    // Set when a patron is taken: { cardId, turn } — the favour comes due.
-    pendingObligation: null,
+    // Axes the patron holds the player to, and which way each one points.
+    // Deviating from one is an ordinary flip — see engine/credibility.js.
+    bindingAxes: [],
+    bindingDirections: {},
+    // Set when a patron is taken, if the roll says they will turn: { patronId, turn }.
+    pendingBetrayal: null,
+    // The betrayal roll happens once per run, not once per patron.
+    betrayalRolled: false,
+    // 'accepted' | 'refused' once the demand has been answered.
+    betrayalOutcome: null,
 
     ownParty: null,
+
+    // Public positions the player has taken, axis -> { direction, turn }.
+    // Contradicting one is a flip, and voters leave over it (engine/credibility.js).
+    stances: {},
+    // Self-serving arrangements taken so far. Breaks at DIRTY_THRESHOLD.
+    dirtyLoad: 0,
+    // Every defection that has happened, for the end card and the turn feedback.
+    defections: [],
+
+    // The best the player's list ever polled, updated every turn. The end screen
+    // shows it against the final figure: peaking early and sliding is a
+    // different story from climbing, and the numbers should say which happened.
+    peakSeats: 0,
+
+    // Set when a branch ends the run before election day:
+    // { turn, cardId, cause, text }. `cause` is 'dead_end' unless a branch
+    // named another one. Non-null means the run is over now.
+    endedEarly: null,
 
     flags: [...(archetype.flags ?? [])],
     seen: [],
@@ -220,9 +246,17 @@ export function playerPartyId(state) {
   return state.party;
 }
 
-/** True once the campaign is over and only election night is left. */
+/**
+ * True once the campaign is over and only election night is left — either
+ * because the clock ran out, or because a branch ended the run early.
+ */
 export function isRunOver(state) {
-  return state.turn > FINAL_TURN;
+  return state.endedEarly !== null || state.turn > FINAL_TURN;
+}
+
+/** Why the run stopped before election day, or null if it ran its course. */
+export function earlyEnding(state) {
+  return state.endedEarly;
 }
 
 /** The maximum affinity the player holds with any single segment. */

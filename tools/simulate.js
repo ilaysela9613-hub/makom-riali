@@ -91,6 +91,7 @@ export function playRun(seed, archetypeId, policy = {}) {
 
   let cardsDrawn = 0;
   let emptyTurns = 0;
+  let gamblesTaken = 0;
   let offersReceived = 0;
   let offersAccepted = 0;
 
@@ -129,7 +130,9 @@ export function playRun(seed, archetypeId, policy = {}) {
     if (card) {
       cardsDrawn += 1;
       const optionIndex = decisions.integer(0, card.options.length - 1);
-      state = applyOption(state, card.id, optionIndex).state;
+      const played = applyOption(state, card.id, optionIndex);
+      if (played.resolution.gamble) gamblesTaken += 1;
+      state = played.state;
     } else {
       emptyTurns += 1;
     }
@@ -152,6 +155,10 @@ export function playRun(seed, archetypeId, policy = {}) {
     slot: state.slot,
     cardsDrawn,
     emptyTurns,
+    gamblesTaken,
+    betrayalOutcome: state.betrayalOutcome,
+    patronKind: state.patron,
+    endedEarly: state.endedEarly,
     offersReceived,
     offersAccepted,
     state: outcome.state,
@@ -207,6 +214,10 @@ function main() {
   let emptyTurnsTotal = 0;
   let offersReceivedTotal = 0;
   let noOfferRuns = 0;
+  let gamblesTotal = 0;
+  const earlyEndingsByCause = new Map();
+  const betrayalOutcomes = new Map();
+  let betrayedRuns = 0;
   let ownPartySeatTotal = 0;
   const patronCounts = new Map();
 
@@ -231,6 +242,18 @@ function main() {
     cardsDrawnTotal += result.cardsDrawn;
     emptyTurnsTotal += result.emptyTurns;
     offersReceivedTotal += result.offersReceived;
+    gamblesTotal += result.gamblesTaken;
+    if (result.betrayalOutcome) {
+      betrayedRuns += 1;
+      betrayalOutcomes.set(
+        result.betrayalOutcome,
+        (betrayalOutcomes.get(result.betrayalOutcome) ?? 0) + 1,
+      );
+    }
+    if (result.endedEarly) {
+      const cause = result.endedEarly.cause;
+      earlyEndingsByCause.set(cause, (earlyEndingsByCause.get(cause) ?? 0) + 1);
+    }
     if (result.offersReceived === 0 && !result.founded) noOfferRuns += 1;
   }
 
@@ -276,6 +299,24 @@ function main() {
   console.log(`  elected                ${formatPercentage(electedCount, runs).padStart(6)}`);
   console.log(`  founded own list       ${formatPercentage(foundedCount, runs).padStart(6)}`);
   console.log(`  joined a party         ${formatPercentage(joinedCount, runs).padStart(6)}`);
+  const earlyTotal = [...earlyEndingsByCause.values()].reduce((sum, count) => sum + count, 0);
+  console.log(
+    `  ended early            ${formatPercentage(earlyTotal, runs).padStart(6)}` +
+      '   <- a branch stopped the run before election day',
+  );
+  for (const [cause, count] of [...earlyEndingsByCause].sort((a, b) => b[1] - a[1])) {
+    console.log(`    ${cause.padEnd(19)}${formatPercentage(count, runs).padStart(6)}`);
+  }
+  console.log(
+    `  patron turned on you   ${formatPercentage(betrayedRuns, runs).padStart(6)}`,
+  );
+  for (const [outcome, count] of [...betrayalOutcomes].sort((a, b) => b[1] - a[1])) {
+    console.log(
+      `    ${outcome.padEnd(19)}${formatPercentage(count, runs).padStart(6)}` +
+        `   (${((count / Math.max(1, betrayedRuns)) * 100).toFixed(0)}% of betrayals)`,
+    );
+  }
+  console.log(`  mean gambles taken     ${(gamblesTotal / runs).toFixed(1).padStart(6)}`);
   console.log(`  mean offers received   ${(offersReceivedTotal / runs).toFixed(1).padStart(6)}`);
   console.log(
     `  never offered a slot   ${formatPercentage(noOfferRuns, runs).padStart(6)}` +
