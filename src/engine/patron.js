@@ -41,6 +41,9 @@ export function currentPatron(state) {
 
 export function isEligibleForPatron(state, patron) {
   if (patron.id === state.patron) return false;
+  // Nobody crosses the map to back a stranger. A patron who does not deal with
+  // the player's declared stream never appears at all.
+  if (state.stream && patron.streams && !patron.streams.includes(state.stream)) return false;
   if (typeof patron.eligible !== 'function') return true;
   return patron.eligible(state);
 }
@@ -193,7 +196,7 @@ export function acceptBetrayal(state) {
   for (const [axisKey, direction] of Object.entries(reversed)) {
     const result = applyStance(next, { axis: axisKey, direction });
     next = result.state;
-    if (result.defection) defections.push(result.defection);
+    defections.push(...result.defections);
   }
 
   return {

@@ -17,7 +17,8 @@ import {
   BEAT_LABELS,
 } from '../data/feedback.js';
 import { BLOC_MOVEMENT_NOTICE_THRESHOLD } from '../data/tuning.js';
-import { branchValence, isGamble } from '../engine/index.js';
+import { classifyBranches, isGamble } from '../engine/index.js';
+import { ROLL_DURATION_MS, BRANCH_CHANCE_TOTAL } from '../data/tuning.js';
 import { div, span, choiceButton, button } from './dom.js';
 
 /**
@@ -28,13 +29,15 @@ import { div, span, choiceButton, button } from './dom.js';
  * percentage at all — there is nothing to weigh.
  */
 function outcomeLines(option) {
+  // A non-action states its result flatly. There is nothing to weigh.
   if (!isGamble(option)) {
-    return [{ chance: null, text: option.certainText, valence: 'neutral' }];
+    return [{ chance: null, text: option.abstainText, valence: 'neutral' }];
   }
-  return option.branches.map((branch) => ({
+  const classes = classifyBranches(option);
+  return option.branches.map((branch, index) => ({
     chance: branch.chance,
     text: branch.text,
-    valence: branch.endsRun ? 'fatal' : branchValence(branch),
+    valence: branch.endsRun ? 'fatal' : classes[index],
   }));
 }
 
@@ -68,6 +71,48 @@ export function renderQuietTurn({ onContinue }) {
       text: 'פגישות, טלפונים, ועוד סבב אחד של מי מדבר עם מי. שום דבר שיזכרו ממנו משהו.',
     }),
     button({ type: 'button', className: 'button', onclick: onContinue }, 'לשבוע הבא'),
+  ]);
+}
+
+/**
+ * The roll, played out where the option list was.
+ *
+ * The bar is the option's own odds drawn to scale: each branch owns a zone as
+ * wide as its chance, in that branch's colour. A marker sweeps the full width
+ * and stops where the roll landed — so the player watches the number they
+ * accepted decide, instead of being handed a verdict.
+ *
+ * Nothing here is clickable. Input stays locked for ROLL_DURATION_MS and the
+ * roll always plays in full.
+ *
+ * @param {number} roll  the value in [0,1) that already decided the branch
+ */
+export function renderRoll({ card, optionIndex, roll }) {
+  const option = card.options[optionIndex];
+  const classes = classifyBranches(option);
+
+  const marker = div({
+    className: 'roll__marker',
+    style: `inset-inline-start: 0%; transition: inset-inline-start ${ROLL_DURATION_MS}ms cubic-bezier(0.16, 0.9, 0.3, 1)`,
+  });
+  // Start at the edge for one frame so the sweep has somewhere to travel from;
+  // a marker born at its final position never appears to move.
+  requestAnimationFrame(() => {
+    marker.style.insetInlineStart = `${roll * 100}%`;
+  });
+
+  return div({ className: 'panel' }, [
+    div({ className: 'screen-title', text: card.title }),
+    div({ className: 'roll__label', text: option.label }),
+    div({ className: 'roll' }, [
+      ...option.branches.map((branch, index) =>
+        div({
+          className: `roll__zone roll__zone--${branch.endsRun ? 'fatal' : classes[index]}`,
+          style: `flex: 0 0 ${(branch.chance / BRANCH_CHANCE_TOTAL) * 100}%`,
+        }, [span({ className: 'roll__zone-chance', text: `${branch.chance}%` })]),
+      ),
+      marker,
+    ]),
   ]);
 }
 

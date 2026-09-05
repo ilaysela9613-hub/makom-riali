@@ -11,7 +11,6 @@ import {
   OWN_PARTY_TIER,
   OWN_PARTY_OPEN_SLOTS,
   FOUND_PARTY_MIN_POPULARITY,
-  FOUND_PARTY_MIN_RESOURCES,
   FOUNDED_PARTY_INHERITANCE_MINIMUM,
   FOUNDED_PARTY_INHERITANCE_MAXIMUM,
   RECRUIT_DEFECTION_BASE_RISK,
@@ -113,13 +112,10 @@ export function leaveParty(state) {
 // Founding your own party
 // ---------------------------------------------------------------------------
 
-/** SPEC §6: popularity > 55 OR resources > 70. Below that it is visible but shut. */
+/** SPEC §6: popularity above the gate. Below it the option is visible but shut. */
 export function canFoundParty(state) {
   if (state.ownParty) return false;
-  return (
-    state.capital.popularity > FOUND_PARTY_MIN_POPULARITY ||
-    state.capital.resources > FOUND_PARTY_MIN_RESOURCES
-  );
+  return state.capital.popularity > FOUND_PARTY_MIN_POPULARITY;
 }
 
 /** Straight-line distance between two positions in the four-axis space. */
@@ -225,7 +221,7 @@ function establishParty(state, name, axes) {
 export function foundParty(state, name, axes = state.axes) {
   if (!canFoundParty(state)) {
     throw new Error(
-      `foundParty: gate not met — needs popularity > ${FOUND_PARTY_MIN_POPULARITY} or resources > ${FOUND_PARTY_MIN_RESOURCES}`,
+      `foundParty: gate not met — needs popularity > ${FOUND_PARTY_MIN_POPULARITY}`,
     );
   }
   return establishParty(state, name, axes);
@@ -234,17 +230,17 @@ export function foundParty(state, name, axes = state.axes) {
 /**
  * Starts a run that opens with the player's own list already founded, in place
  * of joining anyone. This is the run's premise rather than something bought
- * with capital, so it bypasses the mid-run gate — every archetype may do it.
+ * with capital, so it bypasses the mid-run gate — any stream may do it.
  *
  * @param {number} seed
- * @param {string} archetypeId
+ * @param {string} streamId
  * @param {{ name: string, axes: object }} founding
  */
-export function createFoundedRun(seed, archetypeId, founding) {
+export function createFoundedRun(seed, streamId, founding) {
   if (!founding?.name) {
     throw new Error('createFoundedRun: founding.name is required — the player names their own list');
   }
-  const state = createRun(seed, archetypeId);
+  const state = createRun(seed, streamId);
   return establishParty(state, founding.name, founding.axes ?? state.axes);
 }
 
@@ -257,7 +253,7 @@ export function availableRecruits(state) {
   const alreadyRecruited = new Set(state.ownParty.recruits.map((entry) => entry.id));
   return Object.values(RECRUITS).filter(
     (recruit) =>
-      !alreadyRecruited.has(recruit.id) && state.capital.resources >= recruit.cost.resources,
+      !alreadyRecruited.has(recruit.id) && state.capital.party_standing >= recruit.cost.party_standing,
   );
 }
 
@@ -271,7 +267,7 @@ export function recruit(state, recruitId) {
   if (!recruitRecord) throw new Error(`recruit: unknown recruit id "${recruitId}"`);
   if (!state.ownParty) throw new Error('recruit: no own party to recruit into');
 
-  let next = withCapital(state, { resources: -recruitRecord.cost.resources });
+  let next = withCapital(state, { party_standing: -recruitRecord.cost.party_standing });
   next = applySegmentDeltas(next, recruitRecord.brings);
   next = withAxes(next, recruitRecord.axesPull);
   next = {

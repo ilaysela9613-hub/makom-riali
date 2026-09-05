@@ -25,19 +25,40 @@ export default [
     options: [
       {
         label: 'לתמוך בהרחבת המשקל של הדרג הנבחר',
-        certainText: 'ציוני־דתי עובר אליך · המרכז החילוני עוזב',
-        stance: { axis: 'rule_of_law', direction: +1 },
-        axes: { rule_of_law: +0.10 },
-        capital: { party_standing: +6, credibility: -4 },
-        segments: { religious_zionist: +1.5, secular_center: -1.4 },
+        branches: [
+          {
+            chance: 70,
+            text: 'ציוני־דתי עובר אליך · המרכז החילוני עוזב',
+            axes: { rule_of_law: +0.1 },
+            capital: { party_standing: +6, credibility: -4 },
+            segments: { religious_zionist: +1.5, secular_center: -1.4 },
+          },
+          {
+            chance: 30,
+            text: '',
+            axes: { rule_of_law: +0.1 },
+            capital: { credibility: -4 },
+            segments: { secular_center: -1.4 },
+          },
+        ],
       },
       {
         label: 'להתנגד ולשמור על ההרכב הקיים',
-        certainText: 'המרכז החילוני עובר אליך · מחיר במעמד בסיעה',
-        stance: { axis: 'rule_of_law', direction: -1 },
-        axes: { rule_of_law: -0.10 },
-        capital: { credibility: +6, party_standing: -6 },
-        segments: { secular_center: +1.6 },
+        branches: [
+          {
+            chance: 70,
+            text: 'המרכז החילוני עובר אליך · מחיר במעמד בסיעה',
+            axes: { rule_of_law: -0.1 },
+            capital: { credibility: +6, party_standing: -6 },
+            segments: { secular_center: +1.6 },
+          },
+          {
+            chance: 30,
+            text: '',
+            axes: { rule_of_law: -0.1 },
+            capital: { party_standing: -6 },
+          },
+        ],
       },
       {
         label: 'להציע מנגנון הסכמה רחבה',
@@ -72,19 +93,40 @@ export default [
     options: [
       {
         label: 'לתמוך בהרחבה',
-        certainText: 'המרכז החילוני עובר אליך · הקואליציה תזכור',
-        stance: { axis: 'rule_of_law', direction: -1 },
-        axes: { rule_of_law: -0.08 },
-        capital: { credibility: +6, party_standing: -5 },
-        segments: { secular_center: +1.1 },
+        branches: [
+          {
+            chance: 65,
+            text: 'המרכז החילוני עובר אליך · הקואליציה תזכור',
+            axes: { rule_of_law: -0.08 },
+            capital: { credibility: +6, party_standing: -5 },
+            segments: { secular_center: +1.1 },
+          },
+          {
+            chance: 35,
+            text: '',
+            axes: { rule_of_law: -0.08 },
+            capital: { party_standing: -5 },
+          },
+        ],
       },
       {
         label: 'להתנגד ולומר שזה משתק את הממשל',
-        certainText: 'עלייה במעמד בסיעה · המרכז החילוני עוזב',
-        stance: { axis: 'rule_of_law', direction: +1 },
-        axes: { rule_of_law: +0.06 },
-        capital: { party_standing: +5, credibility: -4 },
-        segments: { secular_center: -1.0 },
+        branches: [
+          {
+            chance: 70,
+            text: 'עלייה במעמד בסיעה · המרכז החילוני עוזב',
+            axes: { rule_of_law: +0.06 },
+            capital: { party_standing: +5, credibility: -4 },
+            segments: { secular_center: -1 },
+          },
+          {
+            chance: 30,
+            text: '',
+            axes: { rule_of_law: +0.06 },
+            capital: { credibility: -4 },
+            segments: { secular_center: -1 },
+          },
+        ],
       },
     ],
   },
@@ -102,16 +144,38 @@ export default [
     options: [
       {
         label: 'לתמוך בהקמת הגוף',
-        certainText: 'החברה הערבית והמרכז החילוני עוברים אליך · מחיר בסיעה',
-        axes: { rule_of_law: -0.07 },
-        capital: { credibility: +4, party_standing: -3 },
-        segments: { arab: +1.4, secular_center: +0.8 },
+        branches: [
+          {
+            chance: 60,
+            text: 'החברה הערבית והמרכז החילוני עוברים אליך · מחיר בסיעה',
+            axes: { rule_of_law: -0.07 },
+            capital: { credibility: +4, party_standing: -3 },
+            segments: { arab: +1.4, secular_center: +0.8 },
+          },
+          {
+            chance: 40,
+            text: '',
+            axes: { rule_of_law: -0.07 },
+            capital: { party_standing: -3 },
+          },
+        ],
       },
       {
         label: 'להתנגד ולתמוך בחיזוק הבקרה הפנימית',
-        certainText: 'ציוני־דתי עובר אליך · החברה הערבית עוזבת',
-        capital: { party_standing: +4, credibility: -3 },
-        segments: { arab: -1.2, religious_zionist: +0.7 },
+        branches: [
+          {
+            chance: 70,
+            text: 'ציוני־דתי עובר אליך · החברה הערבית עוזבת',
+            capital: { party_standing: +4, credibility: -3 },
+            segments: { arab: -1.2, religious_zionist: +0.7 },
+          },
+          {
+            chance: 30,
+            text: '',
+            capital: { credibility: -3 },
+            segments: { arab: -1.2 },
+          },
+        ],
       },
     ],
   },
@@ -133,13 +197,33 @@ export default [
     options: [
       {
         label: 'לתמוך ברוב המיוחד',
-        certainText: 'שני הצדדים רואים בך בעיה',
-        capital: { credibility: +7, party_standing: -6 },
+        branches: [
+          {
+            chance: 60,
+            text: 'שני הצדדים רואים בך בעיה',
+            capital: { credibility: +7, party_standing: -6 },
+          },
+          {
+            chance: 40,
+            text: 'שני הצדדים הצביעו נגד',
+            capital: { party_standing: -6 },
+          },
+        ],
       },
       {
         label: 'ללכת עם עמדת הסיעה',
-        certainText: 'עלייה במעמד בסיעה · שום דבר אחר לא זז',
-        capital: { party_standing: +5, credibility: -4 },
+        branches: [
+          {
+            chance: 80,
+            text: 'עלייה במעמד בסיעה · שום דבר אחר לא זז',
+            capital: { party_standing: +5, credibility: -4 },
+          },
+          {
+            chance: 20,
+            text: '',
+            capital: { credibility: -4 },
+          },
+        ],
       },
       {
         label: 'ליזום ניסוח פשרה ולהוביל אותו בעצמך',
@@ -173,12 +257,22 @@ export default [
     options: [
       {
         label: 'לאמץ את ההצעה ולדחוף אותה בעצמך',
-        certainText: 'עולה זמן וכסף · אף אחד לא ישים לב עד שיהיה מאוחר',
-        capital: { credibility: +6, resources: -5 },
+        branches: [
+          {
+            chance: 55,
+            text: 'עולה לך זמן · אף אחד לא ישים לב עד שיהיה מאוחר',
+            capital: { credibility: +6, party_standing: -5 },
+          },
+          {
+            chance: 45,
+            text: 'ההצעה נתקעה בוועדה',
+            capital: { party_standing: -5 },
+          },
+        ],
       },
       {
         label: 'להשאיר אותה למישהו אחר',
-        certainText: 'ללא השפעה',
+        abstainText: 'ללא השפעה',
         capital: { party_standing: +2, credibility: -2 },
       },
     ],

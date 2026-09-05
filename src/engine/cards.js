@@ -3,7 +3,30 @@
 // drawCard is a pure function of the run state: the same state always draws the
 // same card. It does that without consuming the run's randomness, by deriving a
 // throwaway generator from (rngCursor, turn). Only applyOption advances the
-// cursor, and only when an option actually carries a `risk`.
+// cursor, and only when an option is a gamble.
+//
+// ---------------------------------------------------------------------------
+// THE ONE CARVE-OUT FROM §0.4, AND WHAT IT COSTS
+//
+// `applyOption` accepts an optional `rng`: a function returning a float in
+// [0, 1). Browser play passes Math.random, because the roll has to be visibly
+// live — the marker sweeps and lands where it lands, and a seeded roll the
+// player could replay would not be a gamble.
+//
+// The trade-off, stated plainly:
+//
+//   * SHARED-SEED RUN REPRODUCTION IS BROKEN FOR BROWSER PLAY. Two players on
+//     the same seed will draw the same cards and be offered the same slots, but
+//     their gambles will resolve differently and their runs will diverge.
+//   * SIMULATOR RUNS REMAIN FULLY DETERMINISTIC. tools/simulate.js and
+//     tools/balance.js pass no `rng`, so they take the seeded path off
+//     state.rngCursor and a seed still reproduces a run exactly. The balance
+//     harness is unaffected.
+//
+// Nothing else in the engine may call Math.random. The carve-out lives at this
+// one call boundary and is supplied by the caller — this file never reaches for
+// it, and src/engine/ contains no reference to Math.random anywhere.
+// ---------------------------------------------------------------------------
 
 import ALL_CARDS from '../data/cards/index.js';
 import {
@@ -227,12 +250,18 @@ export function isGamble(option) {
 }
 
 /**
- * Which branch a roll lands on. Chances are whole percentages summing to
- * BRANCH_CHANCE_TOTAL, walked in author order so the first branch listed owns
- * the bottom of the range.
+ * Which branch a roll lands on.
+ *
+ * @param {object} option
+ * @param {number} unitRoll  a float in [0, 1) — the position the marker landed
+ *
+ * Chances are whole percentages summing to BRANCH_CHANCE_TOTAL, walked in author
+ * order so the first branch listed owns the bottom of the range. That ordering
+ * is what lets the UI draw the zones and the marker on the same axis: zone
+ * boundaries fall at the running total, and the marker sits at `unitRoll`.
  */
-export function resolveBranch(option, rng) {
-  const roll = rng.range(0, BRANCH_CHANCE_TOTAL);
+export function branchForRoll(option, unitRoll) {
+  const roll = unitRoll * BRANCH_CHANCE_TOTAL;
   let cumulative = 0;
   for (const branch of option.branches) {
     cumulative += branch.chance;
@@ -258,6 +287,29 @@ export function branchValence(branch) {
   return 'neutral';
 }
 
+/**
+ * Which of an option's two branches is the good one and which is the bad one.
+ *
+ * A comparison, not an absolute judgement: every gamble has a better side and a
+ * worse side even when both are painful, and the player needs to see which is
+ * which at a glance. A branch that ends the run is always the worse one however
+ * its numbers happen to add up.
+ *
+ * @returns {('win'|'loss')[]} aligned to option.branches
+ */
+export function classifyBranches(option) {
+  const [first, second] = option.branches;
+  if (first.endsRun) return ['loss', 'win'];
+  if (second.endsRun) return ['win', 'loss'];
+
+  const score = (branch) =>
+    Object.values(branch.capital ?? {}).reduce((sum, delta) => sum + delta, 0) +
+    Object.values(branch.segments ?? {}).reduce((sum, delta) => sum + delta, 0) *
+      BRANCH_VALENCE_SEGMENT_WEIGHT;
+
+  return score(second) > score(first) ? ['loss', 'win'] : ['win', 'loss'];
+}
+
 /** The cause recorded when a branch ends the run. */
 export function endsRunCause(branch) {
   if (!branch?.endsRun) return null;
@@ -273,7 +325,7 @@ export function endsRunCause(branch) {
  *
  * @returns {{ state: object, resolution: object }}
  */
-export function applyOption(state, cardId, optionIndex) {
+export function applyOption(state, cardId, optionIndex, { rng = null } = {}) {
   const card = cardById(cardId);
   if (!card) throw new Error(`applyOption: unknown card id "${cardId}"`);
   const option = card.options[optionIndex];
@@ -288,11 +340,20 @@ export function applyOption(state, cardId, optionIndex) {
   let branch = null;
   let branchIndex = null;
 
+  let unitRoll = null;
   if (gamble) {
-    const rng = createRng(state.rngCursor);
-    branch = resolveBranch(option, rng);
+    if (rng) {
+      // Live roll supplied by the caller. The run cursor is deliberately left
+      // untouched: this roll was never drawn from the run's own stream.
+      unitRoll = rng();
+    } else {
+      const seeded = createRng(state.rngCursor);
+      unitRoll = seeded.next();
+      next = { ...next, rngCursor: seeded.cursor };
+    }
+    branch = branchForRoll(option, unitRoll);
     branchIndex = option.branches.indexOf(branch);
-    next = applyEffectBlock({ ...next, rngCursor: rng.cursor }, branch);
+    next = applyEffectBlock(next, branch);
   } else {
     next = applyEffectBlock(next, option);
   }
@@ -355,6 +416,7 @@ export function applyOption(state, cardId, optionIndex) {
       gamble,
       branchIndex,
       branch,
+      roll: unitRoll,
       outcomeText,
       valence: branch ? branchValence(branch) : 'neutral',
       endsRun: Boolean(cause),

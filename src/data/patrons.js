@@ -16,6 +16,10 @@
 // patron declares a stance on each binding axis, and contradicting one later is
 // an ordinary flip. There is no separate patron punishment anywhere.
 //
+// `streams` lists the declared identities this patron will deal with. Nobody
+// crosses the map to back a stranger, so a gatekeeper never appears to a player
+// from an incompatible stream — the door is simply not there.
+//
 // All patron names are fictional.
 
 import {
@@ -23,9 +27,8 @@ import {
   BRANCH_BOSS_MIN_PARTY_STANDING,
   COUNCIL_AIDE_MIN_RELIGION_AXIS,
   CHIEF_OF_STAFF_MIN_POPULARITY,
-  CHIEF_OF_STAFF_MIN_RESOURCES,
   ORGANISER_MIN_CREDIBILITY,
-  DONOR_MIN_RESOURCES,
+  DONOR_MIN_POPULARITY,
   FEDERATION_MIN_PARTY_STANDING,
   BROADCAST_MIN_POPULARITY,
 } from './tuning.js';
@@ -42,6 +45,7 @@ export default {
     shortName: 'עצמאי',
     pitch: 'אף אחד לא הכניס אותך לכאן, ולכן אף אחד לא יכול להוציא אותך. גם אף אחד לא ירים לך טלפון.',
     agendaText: 'אתה לא מחויב לאף עמדה מלבד שלך.',
+    streams: ['right_religious', 'right', 'center', 'left', 'arab_parties'],
     eligible: () => true,
     party: null,
     bindingAxes: [],
@@ -59,6 +63,7 @@ export default {
     shortName: 'ראש הסניף',
     pitch: 'הוא מכיר כל מתפקד בעיר בשמו הפרטי. הוא יכניס אותך לרשימה השבוע, ויזכיר לך את זה בכל שבוע אחרי.',
     agendaText: 'קו ביטחוני נוקשה ושמירה על הסטטוס קוו הדתי — בלי סטיות.',
+    streams: ['right', 'right_religious'],
     eligible: (player) => player.capital.party_standing >= BRANCH_BOSS_MIN_PARTY_STANDING,
     party: 'halikud',
     bindingAxes: ['security', 'religion'],
@@ -72,6 +77,7 @@ export default {
     shortName: 'המקורב',
     pitch: 'הוא לא מתרשם מסקרים ולא מאולפנים. הוא ראה אותך מגיע לכל אירוע במשך שנתיים, וזה מה שסופרים אצלו.',
     agendaText: 'עמדה דתית מובהקת, בכל הצבעה, בלי יוצא מן הכלל.',
+    streams: ['right_religious'],
     eligible: (player) => player.axes.religion >= COUNCIL_AIDE_MIN_RELIGION_AXIS,
     party: 'shas',
     bindingAxes: ['religion'],
@@ -85,10 +91,8 @@ export default {
     shortName: 'ראש המטה',
     pitch: 'הוא ראה אותך באולפן והחליט שאתה שלו. מהיום העמדות שלך הן העמדות של המפלגה, וזה קורה לאט מספיק כדי שלא תשים לב.',
     agendaText: 'קו ביטחוני מוצק ושוק חופשי — בדיוק כמו המפלגה.',
-    // A big party takes you seriously for being known OR for being funded.
-    eligible: (player) =>
-      player.capital.popularity >= CHIEF_OF_STAFF_MIN_POPULARITY ||
-      player.capital.resources >= CHIEF_OF_STAFF_MIN_RESOURCES,
+    streams: ['left', 'center'],
+    eligible: (player) => player.capital.popularity >= CHIEF_OF_STAFF_MIN_POPULARITY,
     party: 'beyachad',
     bindingAxes: ['security', 'economy'],
     headStart: null,
@@ -101,6 +105,7 @@ export default {
     shortName: 'מנהלת המטה',
     pitch: 'היא בנתה שלוש קמפייניות מנצחות ואף אחת מהן לא הייתה שלה. את שלך היא מוכנה לבנות, בתנאי אחד.',
     agendaText: 'הגנה על ביקורת שיפוטית — בלי לרכך ובלי להתחמק.',
+    streams: ['left', 'center'],
     eligible: (player) => player.capital.credibility >= ORGANISER_MIN_CREDIBILITY,
     party: 'hademokratim',
     bindingAxes: ['rule_of_law'],
@@ -118,12 +123,13 @@ export default {
     shortName: 'התורם',
     pitch: 'הוא לא מבקש ג׳וב ולא מבקש תפקיד. הוא רק רוצה שתזכור מי מימן לך את הסיבוב הראשון.',
     agendaText: 'צמיחה, שוק חופשי, פחות רגולציה — ואתה אומר את זה בקול.',
-    eligible: (player) => player.capital.resources >= DONOR_MIN_RESOURCES,
+    streams: ['right', 'right_religious', 'center'],
+    eligible: (player) => player.capital.popularity >= DONOR_MIN_POPULARITY,
     party: null,
     bindingAxes: ['economy'],
     agendaAxes: { economy: +1 },
     headStart: {
-      capital: { resources: +22, popularity: +6 },
+      capital: { popularity: +20, party_standing: +6 },
       segments: { secular_center: +1.0 },
     },
   },
@@ -134,7 +140,8 @@ export default {
     displayName: 'ועד עובדים ארצי — סיגלית אוחיון',
     shortName: 'הוועד',
     pitch: 'היא הוציאה שלושה מפעלים לשביתה וסגרה הסכם שאיש לא האמין בו. היא יודעת לספור קולות באולם, ותספור גם את שלך.',
-    agendaText: 'הגנה על העובדים ועל הפריפריה — לפני כל שיקול תקציבי.',
+    agendaText: 'הגנה על העובדים ועל הפריפריה — לפני כל שיקול אחר.',
+    streams: ['left', 'arab_parties', 'center'],
     eligible: (player) => player.capital.party_standing >= FEDERATION_MIN_PARTY_STANDING,
     party: null,
     bindingAxes: ['economy'],
@@ -152,6 +159,7 @@ export default {
     shortName: 'התקשורת',
     pitch: 'היא לא תבקש ממך כלום. היא פשוט תדאג שכל מה שתעשה יגיע למהדורה — כולל מה שלא רצית שיגיע.',
     agendaText: 'עמידה על ביקורת שיפוטית ועל חופש העיתונות, בכל ראיון.',
+    streams: ['left', 'center', 'arab_parties'],
     eligible: (player) => player.capital.popularity >= BROADCAST_MIN_POPULARITY,
     party: null,
     bindingAxes: ['rule_of_law'],

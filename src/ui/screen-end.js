@@ -12,7 +12,7 @@
 
 import PARTIES from '../data/parties.js';
 import { renderSeatChart, renderDriftChart } from './screen-election.js';
-import { playerPartyId } from '../engine/index.js';
+import { playerPartyId, popularityBand } from '../engine/index.js';
 import { div, span, button } from './dom.js';
 
 const EARLY_ENDING_LABELS = {
@@ -57,7 +57,11 @@ export function renderEndScreen({ outcome, startingAxes, onRestart }) {
     ]),
 
     // The four axes ran the entire game without ever being shown. Here they are.
-    renderDriftChart({ startingAxes, finalAxes: state.axes }),
+    renderDriftChart({
+      startingAxes,
+      finalAxes: state.axes,
+      bandLabel: popularityBand(state).label,
+    }),
 
     renderSeatChart({ seats, shares, state }),
 

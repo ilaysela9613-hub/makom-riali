@@ -54,14 +54,21 @@ A separate flag, not an axis:
 In Israeli politics this constrains you more than ideology does. Changing it
 mid-run costs `credibility` heavily.
 
-### 2.3 Capital meters (0–100)
+### 2.3 Capital meters (0–100) — three of them
 
 | Meter | Role |
 |---|---|
 | `popularity` | Public recognition. Gates chairman-appointed slots and new-party viability. |
 | `party_standing` | Internal machine strength. Gates primaries. |
-| `credibility` | Buffers scandals. Burned by flip-flops, patron upkeep, coalition concessions. |
-| `resources` | Money, staff, media access. Spent on campaigns, recruitment, primaries. |
+| `credibility` | Buffers scandals. Burned by flip-flops and coalition concessions. |
+
+Character creation is the stream (§9). The six starting archetypes were deleted
+in M8 and their starting axes, affinity and capital moved onto the five stream
+records in `data/streams.js`.
+
+`resources` was cut in M6: it gated `requires` and never appeared in a decision,
+so it was a hidden constant wearing a meter's clothes. Costs that used to read as
+money now read as favours owed, which is what they always were.
 
 ### 2.4 Segment affinity
 
@@ -306,7 +313,15 @@ between "I was safe at 9" and "we got 7" is the emotional payload.
 | Act | Turns | Content |
 |---|---|---|
 | 1 · כניסה | 1–8 | Entry path sets starting capital mix. *(v2)* |
-| 2 · הרשימה | 9–16 | Patron choice. Party offers. Primaries or appointment. Or found your own. |
+| 2 · הרשימה | 9–15 | Party offers. Primaries or appointment. Or found your own. *(Patron choice left Act 2 in M6 — it is pre-run setup, so this act is one turn shorter.)* |
+
+**Pre-run setup, before Act 2 begins:** premise → **stream** → backer. No turns
+consumed. `stream` is the player's *declared identity*, and since M8 it is also
+the whole of character creation — it carries the starting axes, segment affinity
+and capital that six separate archetypes used to. It never changes during a run,
+and it is distinct from `party` (current affiliation, changes with every offer
+accepted) and from `posture` (the coalition-arithmetic flag). Backer eligibility
+filters on stream — nobody crosses the map to back a stranger.
 | 3 · הקמפיין | 17–28 | Campaign. Events deck fires hard. Poll ticker. |
 | 4 · ליל הבחירות | 1 | Allocation, threshold drama, title. |
 | 5 · קואליציה | 5–8 | Negotiation to 61. Concessions burn credibility. *(v1)* |

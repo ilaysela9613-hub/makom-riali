@@ -9,12 +9,12 @@
 
 :root {
   /* Palette --------------------------------------------------------------- */
-  --color-canvas: #101218;
-  --color-surface: #1a1d25;
-  --color-surface-raised: #232733;
-  --color-surface-sunken: #14161d;
-  --color-border: #2e3341;
-  --color-border-strong: #414859;
+  --color-canvas: #2047be;
+  --color-surface: #1f45b0;
+  --color-surface-raised: #2048c0;
+  --color-surface-sunken: #313e6f;
+  --color-border: #1e2127;
+  --color-border-strong: #131417;
 
   --color-text: #e9ebf2;
   --color-text-muted: #98a0b3;
@@ -52,6 +52,20 @@
   --border-hairline: 1px solid var(--color-border);
 
   --layout-width: 500px;
+
+  /*
+   * Every screen fits one viewport without vertical scroll: a phone at 640px
+   * and a desktop window at 1000px. Setup screens are the strict case — if one
+   * of them ever needs scrolling, it is carrying too much, and the fix is to
+   * cut content rather than raise this number.
+   */
+  --viewport-max-height: 640px;
+}
+
+@media (min-height: 1000px) {
+  :root {
+    --viewport-max-height: 1000px;
+  }
 }
 
 * {
@@ -912,15 +926,7 @@ body {
   color: var(--color-text-muted);
 }
 
-.outcome--positive .outcome__chance,
-.outcome--positive .outcome__text {
-  color: var(--color-positive);
-}
 
-.outcome--negative .outcome__chance,
-.outcome--negative .outcome__text {
-  color: var(--color-negative);
-}
 
 /* A branch that ends the run reads louder than an ordinary bad outcome. */
 .outcome--fatal .outcome__chance,
@@ -993,4 +999,185 @@ body {
 .outcome-line--title .outcome-line__value {
   font-size: var(--text-xl);
   color: var(--color-accent);
+}
+
+/* ---------------------------------------------------------------------------
+ * Branch colouring — muted green for the better side, muted amber for the
+ * worse. Deliberately not a stoplight: a losing branch is a cost, not an error,
+ * and red would read as "you did something wrong" rather than "this went badly".
+ * ------------------------------------------------------------------------ */
+
+:root {
+  --win: #2F8F5C;
+  --loss: #C77A2E;
+}
+
+.outcome--win .outcome__chance,
+.outcome--win .outcome__text {
+  color: var(--win);
+}
+
+.outcome--loss .outcome__chance,
+.outcome--loss .outcome__text {
+  color: var(--loss);
+}
+
+.outcome--fatal .outcome__chance,
+.outcome--fatal .outcome__text {
+  color: var(--loss);
+  font-weight: 700;
+}
+
+/* A failure not worth a sentence still holds its line. */
+.outcome__rule {
+  flex: 1 1 auto;
+  block-size: 1px;
+  align-self: center;
+  background: currentColor;
+  opacity: 0.28;
+}
+
+/* ---------------------------------------------------------------------------
+ * The roll
+ *
+ * The option's odds drawn to scale. Each branch owns a zone as wide as its
+ * chance; the marker sweeps the full width and stops where the roll landed.
+ * Input is locked for the duration — there is nothing clickable here.
+ * ------------------------------------------------------------------------ */
+
+.roll__label {
+  font-weight: 600;
+  margin-block: var(--space-4) var(--space-3);
+}
+
+.roll {
+  position: relative;
+  display: flex;
+  block-size: 2.25rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: var(--border-hairline);
+}
+
+.roll__zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 0;
+}
+
+.roll__zone-chance {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: #fff;
+  opacity: 0.9;
+}
+
+.roll__zone--win {
+  background: var(--win);
+}
+
+.roll__zone--loss,
+.roll__zone--fatal {
+  background: var(--loss);
+}
+
+.roll__zone--fatal {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0 6px,
+    rgba(0, 0, 0, 0.18) 6px 12px
+  );
+}
+
+.roll__marker {
+  position: absolute;
+  inset-block: -2px;
+  inline-size: 3px;
+  margin-inline-start: -1px;
+  background: var(--ink, #0A1A3A);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roll__marker {
+    transition: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Screens
+ *
+ * Flush to the top on a phone, vertically centred once there is room. The
+ * min-block-size is what makes the centring do anything on desktop.
+ * ------------------------------------------------------------------------ */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-block-size: min(100dvh - var(--space-7), var(--viewport-max-height));
+}
+
+@media (min-height: 700px) {
+  .screen--centred,
+  .screen {
+    justify-content: center;
+  }
+}
+
+.screen__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.screen__step {
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  letter-spacing: 0.08em;
+}
+
+.back {
+  font-family: inherit;
+  font-size: var(--text-sm);
+  background: none;
+  border: none;
+  padding: var(--space-1) 0;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.back:hover,
+.back:focus-visible {
+  color: var(--color-accent);
+  outline: none;
+}
+
+/* The setup screens hold a lot of choices; let the list scroll inside the
+   screen rather than pushing the confirm button off the bottom. */
+.screen .choice-list {
+  overflow-y: auto;
+  min-block-size: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Popularity band — part of the slot line, never its own row
+ * ------------------------------------------------------------------------ */
+
+.slot-summary__value--band-changed {
+  animation: band-settle var(--band-animation-ms, 300ms) ease-out;
+}
+
+@keyframes band-settle {
+  from { opacity: 0.35; transform: scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slot-summary__value--band-changed {
+    animation: none;
+  }
 }

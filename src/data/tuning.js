@@ -10,9 +10,11 @@
 // ---------------------------------------------------------------------------
 
 // Act 1 (כניסה) and Acts 5–6 are post-v0. v0 opens on Act 2 at turn 1.
+// Patron selection moved out of Act 2 in M6 — it is pre-run setup now, chosen
+// before the first card is ever drawn — so Act 2 is one turn shorter.
 export const ACT_SCHEDULE = [
-  { act: 2, firstTurn: 1, lastTurn: 8 }, // הרשימה  — patron, party offers
-  { act: 3, firstTurn: 9, lastTurn: 24 }, // הקמפיין — the events deck fires
+  { act: 2, firstTurn: 1, lastTurn: 7 }, // הרשימה  — party offers
+  { act: 3, firstTurn: 8, lastTurn: 24 }, // הקמפיין — the events deck fires
 ];
 
 /** The last turn that draws a card. Election night resolves after it. */
@@ -30,6 +32,25 @@ export const DAYS_PER_TURN = 7;
  * and the slot table only works as a score if it can be read at a glance.
  */
 export const SLOT_HUD_ROW_LIMIT = 5;
+
+/**
+ * Popularity, as the player sees it: a name, never a number.
+ *
+ * The meter itself still runs 0–100 and still drives the slot chains. What the
+ * HUD shows is which band it currently sits in, because "אהוב" is a thing a
+ * politician can be and "63" is not. Ordered low to high; `popularityBand` in
+ * engine/state.js walks it from the top down.
+ */
+export const POPULARITY_BANDS = [
+  { min: 0, label: 'דמות שולית' },
+  { min: 20, label: 'מוכר בקושי' },
+  { min: 40, label: 'מוכר' },
+  { min: 60, label: 'אהוב' },
+  { min: 80, label: 'סוחף' },
+];
+
+/** How long the band label takes to settle when it changes. */
+export const POPULARITY_BAND_ANIMATION_MS = 300;
 
 // ---------------------------------------------------------------------------
 // Player quantity bounds
@@ -122,7 +143,7 @@ export const GATEKEEPER_SLOT_CONCESSION = 0.5;
  * Relative to the party's SIZE on purpose. Anchoring on each party's best open
  * slot instead made the deal worth wildly different amounts depending on who
  * was offering — slot 6 on a twelve-seat list against slot 11 on a sixteen-seat
- * one — and handed the run to whichever archetype could reach the good door.
+ * one — and handed the run to whichever start could reach the good door.
  */
 export const GATEKEEPER_SEAT_DEPTH = 0.6;
 
@@ -133,10 +154,9 @@ export const PATRON_SWITCH_CREDIBILITY_COST = 12;
 export const BRANCH_BOSS_MIN_PARTY_STANDING = 20;
 export const COUNCIL_AIDE_MIN_RELIGION_AXIS = 0.35;
 export const CHIEF_OF_STAFF_MIN_POPULARITY = 40;
-/** Or buy your way to the same table. A big party notices either kind of asset. */
-export const CHIEF_OF_STAFF_MIN_RESOURCES = 60;
 export const ORGANISER_MIN_CREDIBILITY = 50;
-export const DONOR_MIN_RESOURCES = 25;
+/** A donor backs someone people have already heard of. */
+export const DONOR_MIN_POPULARITY = 30;
 export const FEDERATION_MIN_PARTY_STANDING = 25;
 export const BROADCAST_MIN_POPULARITY = 45;
 
@@ -173,10 +193,9 @@ export const TIER_BASE_OFFER_CHANCE = {
 };
 
 export const OFFER_CAPITAL_WEIGHTS = {
-  party_standing: 0.45,
-  popularity: 0.25,
-  resources: 0.20,
-  credibility: 0.10,
+  party_standing: 0.50,
+  popularity: 0.32,
+  credibility: 0.18,
 };
 
 export const OFFER_CHANCE_MINIMUM = 0.02;
@@ -190,10 +209,9 @@ export const OFFER_CHANCE_REACHABLE_MINIMUM = 0.25;
 // ---------------------------------------------------------------------------
 
 export const SLOT_CAPITAL_WEIGHTS = {
-  popularity: 0.40,
-  party_standing: 0.30,
-  credibility: 0.20,
-  resources: 0.10,
+  popularity: 0.44,
+  party_standing: 0.34,
+  credibility: 0.22,
 };
 
 export const BEST_POSSIBLE_SLOT = 1;
@@ -235,7 +253,6 @@ export const OWN_PARTY_OPEN_SLOTS = [1]; // you are number one on your own list
 // turn 1 the choice is always open, because it is the run's premise rather
 // than something you spend capital on (SPEC §6).
 export const FOUND_PARTY_MIN_POPULARITY = 55;
-export const FOUND_PARTY_MIN_RESOURCES = 70;
 
 /**
  * A founded list displaces the fictional party closest to it in axis space and
@@ -262,6 +279,17 @@ export const ELECTION_THRESHOLD_SHARE = 0.0325;
 
 export const TURNOUT_VARIANCE_MINIMUM = 0.85;
 export const TURNOUT_VARIANCE_MAXIMUM = 1.15;
+
+/**
+ * Weekly polling noise, as a multiplier either side of a party's true share.
+ *
+ * A poll is a SAMPLE, not the result. Without this the ticker is a pure
+ * function of the player's own decisions: it sits perfectly still on a quiet
+ * week and matches election night almost exactly, which tells the player the
+ * campaign is already decided. Derived from (seed, turn), so a given week
+ * always polls the same and the HUD does not flicker between renders.
+ */
+export const POLL_NOISE_RANGE = 0.07;
 
 // ---------------------------------------------------------------------------
 // End titles — the slot bands each title sits in
@@ -330,7 +358,7 @@ export const TOP_TIER_TITLE_IDS = [
 
 /**
  * CLAUDE.md §6.1 — a spread wider than this between the best and worst
- * archetype's top-tier reach rate is a balance bug, and will be read as a
+ * stream's top-tier reach rate is a balance bug, and will be read as a
  * political statement. tools/balance.js exits non-zero on it.
  */
 export const BALANCE_MAX_TOP_TIER_SPREAD = 0.20;
@@ -339,7 +367,7 @@ export const BALANCE_MAX_TOP_TIER_SPREAD = 0.20;
  * Floor and ceiling on the cohort as a whole.
  *
  * The spread test only catches ASYMMETRY. It cannot tell "perfectly balanced"
- * from "equally broken for everyone" — six archetypes all reaching the top tier
+ * from "equally broken for everyone" — five streams all reaching the top tier
  * 0% of the time has a spread of zero and would otherwise pass. These two
  * bounds catch that case from both directions:
  *
@@ -350,19 +378,19 @@ export const BALANCE_MIN_TOP_TIER_RATE = 0.10;
 export const BALANCE_MAX_TOP_TIER_RATE = 0.75;
 
 // ---------------------------------------------------------------------------
-// Stances, integrity and defection
+// Stances and defection — THE ONLY IDEOLOGICAL PUNISHMENT IN THE GAME
 //
-// Replaces abstract credibility damage with something the player can watch
-// happen. Contradicting a position you took in public, or piling up deals that
-// serve you and nobody else, makes actual voters leave — and the run says which
-// voters and why.
+// One rule, and it fits in a sentence: declare a position, contradict it later,
+// lose voters from the blocs that punish flips.
+//
+// M8 deleted the other three. Cross-stream punishment and dirty-deal
+// accumulation were each individually reasonable and collectively made
+// consequences unreadable — a player could not tell which of four systems had
+// just taken their voters. Do not add a fifth.
 //
 // `credibility` still exists and still moves; it simply stopped being shown.
 // It buffers scandals inside the engine. Defection is what the player sees.
 // ---------------------------------------------------------------------------
-
-/** How many `integrity: 'dirty'` choices pile up before voters act on them. */
-export const DIRTY_THRESHOLD = 3;
 
 /**
  * Segment delta points removed from a punishing segment when the player is
@@ -371,9 +399,6 @@ export const DIRTY_THRESHOLD = 3;
  */
 export const FLIP_DEFECTION_BASE = 1.8;
 
-/** The same, for a defection triggered by accumulated dirty dealing. */
-export const DIRTY_DEFECTION_BASE = 1.5;
-
 /**
  * A defection only moves a segment whose weight for that reason clears this.
  * Keeps a defection legible: three or four segments move, not all eight.
@@ -381,26 +406,23 @@ export const DIRTY_DEFECTION_BASE = 1.5;
 export const DEFECTION_MINIMUM_WEIGHT = 0.55;
 
 /**
- * How heavily each segment weighs the two failures, 0…1.
+ * How heavily each segment punishes a broken stance, 0…1.
  *
- * These are NOT moral scores and must never be presented as any electorate
- * being more or less honest than another. They model what an electorate votes
- * ON: some weigh ideological consistency most heavily, others weigh delivery
- * and access, and a voter who cares about delivery is not thereby indifferent
- * to it — they are simply answering a different question at the ballot box.
- *
- * Nothing sits at zero, and nothing sits at one for both. A caricature here
- * would be both bad modelling and a breach of CLAUDE.md §6.
+ * NOT a moral score, and never to be presented as one electorate being more or
+ * less honest than another. It models what an electorate votes ON: some weigh
+ * ideological consistency most heavily, others weigh delivery and access, and a
+ * voter who cares about delivery is answering a different question at the
+ * ballot box, not a lower one.
  */
 export const SEGMENT_PUNISH_WEIGHTS = {
-  secular_center: { flip: 1.0, dirty: 0.9 },
-  young_reservists: { flip: 0.9, dirty: 0.8 },
-  religious_zionist: { flip: 0.8, dirty: 0.5 },
-  haredi: { flip: 0.6, dirty: 0.3 },
-  arab: { flip: 0.5, dirty: 0.6 },
-  russian_speaking: { flip: 0.5, dirty: 0.4 },
-  traditional_mizrahi: { flip: 0.4, dirty: 0.3 },
-  periphery_general: { flip: 0.4, dirty: 0.5 },
+  secular_center: 1.0,
+  young_reservists: 0.9,
+  religious_zionist: 0.8,
+  haredi: 0.6,
+  arab: 0.5,
+  russian_speaking: 0.5,
+  traditional_mizrahi: 0.4,
+  periphery_general: 0.4,
 };
 
 // ---------------------------------------------------------------------------
@@ -434,6 +456,24 @@ export const BLOC_MOVEMENT_NOTICE_THRESHOLD = 0.002;
 /** Every gamble has exactly this many branches, and their chances sum to 100. */
 export const BRANCHES_PER_GAMBLE = 2;
 export const BRANCH_CHANCE_TOTAL = 100;
+
+/**
+ * No branch may be rarer than this. 20/80 is the safest bet in the game.
+ *
+ * A 5% branch is not a gamble the player weighs, it is a trap they discover
+ * afterwards; a 95% branch is a certainty wearing odds. Keeping both sides
+ * above the floor is what makes every action genuinely a bet.
+ */
+export const BRANCH_CHANCE_MINIMUM = 20;
+
+/**
+ * How long the roll takes to play out on screen, in milliseconds.
+ *
+ * Input is locked for exactly this long and the roll always plays in full — the
+ * point is that the player watches the odds they accepted resolve, rather than
+ * being handed a verdict.
+ */
+export const ROLL_DURATION_MS = 500;
 
 /**
  * Share of all branches in the deck that end the run on the spot.

@@ -3,7 +3,7 @@
 // Headless simulator.
 //
 //   node tools/simulate.js --runs 1000
-//   node tools/simulate.js --runs 500 --archetype tech_founder
+//   node tools/simulate.js --runs 500 --stream center
 //   node tools/simulate.js --runs 500 --found 1.0
 //
 // Plays full runs with a random policy and prints the distribution of outcome
@@ -27,12 +27,14 @@ import {
   poll,
   runElection,
   createRng,
+  allCards,
 } from '../src/engine/index.js';
-import ARCHETYPES from '../src/data/archetypes.js';
+import PATRONS from '../src/data/patrons.js';
 import PARTIES from '../src/data/parties.js';
-import { OWN_PARTY_ID } from '../src/data/tuning.js';
+import { OWN_PARTY_ID, DEAD_END_TARGET_RATE } from '../src/data/tuning.js';
+import { STREAMS, STREAM_IDS } from '../src/data/streams.js';
 
-const ARCHETYPE_IDS = Object.keys(ARCHETYPES);
+
 
 // ---------------------------------------------------------------------------
 // The random policy
@@ -45,8 +47,12 @@ const ARCHETYPE_IDS = Object.keys(ARCHETYPES);
 const DEFAULT_POLICY = {
   /** Chance of founding your own list at character creation. */
   foundChance: 0.2,
-  /** Per-turn chance of taking a patron, when any is eligible. */
-  patronChance: 0.25,
+  /**
+   * Chance of taking a real patron during setup rather than standing alone.
+   * Chosen ONCE, before the first card — patron selection is pre-run setup now,
+   * not something that can happen on turn 14.
+   */
+  patronChance: 0.75,
   /**
    * Chance of accepting an offer the policy judges realistic — a slot inside
    * that party's projected seat count. An unrealistic offer is always declined.
@@ -62,12 +68,12 @@ const SIMULATED_PARTY_NAME = 'רשימה חדשה';
  * Plays one full run to election night.
  *
  * @param {number} seed
- * @param {string} archetypeId
+ * @param {string} streamId  the whole of character creation since M8
  * @param {object} [policy]
- * @returns {{ seed, archetypeId, title, playerSeats, playerElected, seats,
+ * @returns {{ seed, streamId, title, playerSeats, playerElected, seats,
  *             founded, joinedPartyId, patron, cardsDrawn, emptyTurns, state }}
  */
-export function playRun(seed, archetypeId, policy = {}) {
+export function playRun(seed, streamId, policy = {}) {
   const { foundChance, patronChance, acceptChance } = { ...DEFAULT_POLICY, ...policy };
 
   // A separate stream, so policy coin-flips never disturb the run's own cursor
@@ -76,18 +82,25 @@ export function playRun(seed, archetypeId, policy = {}) {
 
   const founded = decisions.chance(foundChance);
   let state = founded
-    ? createFoundedRun(seed, archetypeId, {
+    ? createFoundedRun(seed, streamId, {
         name: SIMULATED_PARTY_NAME,
         // A founder positions their list somewhere near, but not exactly on,
         // their own ideology.
         axes: Object.fromEntries(
-          Object.entries(ARCHETYPES[archetypeId].axes).map(([axisKey, value]) => [
+          Object.entries(STREAMS.find((one) => one.id === streamId).startingAxes).map(([axisKey, value]) => [
             axisKey,
             Math.max(-1, Math.min(1, value + decisions.range(-0.3, 0.3))),
           ]),
         ),
       })
-    : createRun(seed, archetypeId);
+    : createRun(seed, streamId);
+
+  // SETUP, in the order the player does it: stream, patron, cards. Nothing
+  // below this point may change either the stream or who backs them.
+  const bindingPatrons = eligiblePatrons(state).filter((patron) => patron.kind !== 'none');
+  if (bindingPatrons.length > 0 && decisions.chance(patronChance)) {
+    state = choosePatron(state, decisions.pick(bindingPatrons).id);
+  }
 
   let cardsDrawn = 0;
   let emptyTurns = 0;
@@ -96,11 +109,6 @@ export function playRun(seed, archetypeId, policy = {}) {
   let offersAccepted = 0;
 
   while (!isRunOver(state)) {
-    const available = eligiblePatrons(state);
-    if (available.length > 0 && decisions.chance(patronChance)) {
-      state = choosePatron(state, decisions.pick(available).id);
-    }
-
     // Answer whatever is on the table. Nothing carries to the next turn.
     if (state.offers.length > 0) {
       offersReceived += state.offers.length;
@@ -144,7 +152,7 @@ export function playRun(seed, archetypeId, policy = {}) {
 
   return {
     seed,
-    archetypeId,
+    streamId,
     title: outcome.title,
     playerSeats: outcome.playerSeats,
     playerElected: outcome.playerElected,
@@ -189,16 +197,38 @@ function bar(fraction, width = 24) {
   return '█'.repeat(filled) + '·'.repeat(width - filled);
 }
 
+/**
+ * A poll is a projection, not the result. If turn-1 polling matched election
+ * night the ticker would be telling the player the campaign is already decided,
+ * so this asserts the two genuinely differ across a sample of runs.
+ */
+export function checkPollIsNotTheResult(runs = 200, firstSeed = 1) {
+  let matchedExactly = 0;
+  let totalSeatGap = 0;
+
+  for (let index = 0; index < runs; index += 1) {
+    const state = createRun(firstSeed + index, STREAM_IDS[index % STREAM_IDS.length]);
+    const projected = poll(state);
+    const { seats } = runElection(state);
+    const gap = Object.keys(seats).reduce(
+      (sum, partyId) => sum + Math.abs((projected[partyId] ?? 0) - seats[partyId]),
+      0,
+    );
+    totalSeatGap += gap;
+    if (gap === 0) matchedExactly += 1;
+  }
+
+  return { runs, matchedExactly, meanSeatGap: totalSeatGap / runs };
+}
+
 function main() {
   const options = parseArguments(process.argv.slice(2));
   const runs = Number(options.runs ?? 1000);
   const firstSeed = Number(options.seed ?? 1);
-  const requestedArchetype = typeof options.archetype === 'string' ? options.archetype : null;
+  const requestedStream = typeof options.stream === 'string' ? options.stream : null;
 
-  if (requestedArchetype && !ARCHETYPES[requestedArchetype]) {
-    console.error(
-      `Unknown archetype "${requestedArchetype}". Known: ${ARCHETYPE_IDS.join(', ')}`,
-    );
+  if (requestedStream && !STREAM_IDS.includes(requestedStream)) {
+    console.error(`Unknown stream "${requestedStream}". Known: ${STREAM_IDS.join(', ')}`);
     process.exit(1);
   }
 
@@ -220,13 +250,18 @@ function main() {
   let betrayedRuns = 0;
   let ownPartySeatTotal = 0;
   const patronCounts = new Map();
+  const streamCounts = new Map();
+  const patronsByStream = new Map();
 
   for (let index = 0; index < runs; index += 1) {
-    const archetypeId = requestedArchetype ?? ARCHETYPE_IDS[index % ARCHETYPE_IDS.length];
-    const result = playRun(firstSeed + index, archetypeId, policy);
+    const streamId = requestedStream ?? STREAM_IDS[index % STREAM_IDS.length];
+    const result = playRun(firstSeed + index, streamId, policy);
 
     titleCounts.set(result.title.label, (titleCounts.get(result.title.label) ?? 0) + 1);
     patronCounts.set(result.patron, (patronCounts.get(result.patron) ?? 0) + 1);
+    streamCounts.set(result.streamId, (streamCounts.get(result.streamId) ?? 0) + 1);
+    if (!patronsByStream.has(result.streamId)) patronsByStream.set(result.streamId, new Set());
+    patronsByStream.get(result.streamId).add(result.patron);
 
     for (const [partyId, seats] of Object.entries(result.seats)) {
       if (partyId === OWN_PARTY_ID) {
@@ -259,7 +294,7 @@ function main() {
 
   console.log('');
   console.log(`${runs} runs · seeds ${firstSeed}…${firstSeed + runs - 1} · ` +
-    `archetype ${requestedArchetype ?? 'all (rotating)'}`);
+    `stream ${requestedStream ?? 'all (rotating)'}`);
 
   console.log('');
   console.log('OUTCOME TITLES');
@@ -288,21 +323,60 @@ function main() {
     );
   }
 
+  // Stream is declared before the first card, and patron eligibility filters on
+  // it — so no stream may ever end up holding a patron that refuses to deal
+  // with it. This is the assertion for that.
+  console.log('');
+  console.log('PATRONS REACHED, BY DECLARED STREAM');
+  for (const [streamId, patrons] of [...patronsByStream].sort()) {
+    const illegal = [...patrons].filter((patronId) => {
+      const patron = PATRONS[patronId];
+      return patron?.streams && !patron.streams.includes(streamId);
+    });
+    console.log(
+      `  ${streamId.padEnd(17)} ${formatPercentage(streamCounts.get(streamId), runs).padStart(6)}` +
+        `  ${[...patrons].map((id) => id.replace(/_.*/, '')).join(', ')}` +
+        (illegal.length ? `   <- ILLEGAL: ${illegal.join(', ')}` : ''),
+    );
+  }
+
   console.log('');
   console.log('PATRON AT ELECTION');
   for (const [patronId, count] of [...patronCounts.entries()].sort((a, b) => b[1] - a[1])) {
     console.log(`  ${patronId.padEnd(20)} ${formatPercentage(count, runs).padStart(6)}`);
   }
 
+  const pollCheck = checkPollIsNotTheResult(Math.min(runs, 200), firstSeed);
+  console.log('');
+  console.log('POLL SANITY');
+  console.log(
+    `  turn-1 poll = election ${formatPercentage(pollCheck.matchedExactly, pollCheck.runs).padStart(6)}` +
+      '   <- must be near zero; a poll is not the result',
+  );
+  console.log(`  mean seat gap          ${pollCheck.meanSeatGap.toFixed(1).padStart(6)}`);
+
   console.log('');
   console.log('DIAGNOSTICS');
   console.log(`  elected                ${formatPercentage(electedCount, runs).padStart(6)}`);
   console.log(`  founded own list       ${formatPercentage(foundedCount, runs).padStart(6)}`);
   console.log(`  joined a party         ${formatPercentage(joinedCount, runs).padStart(6)}`);
+  // Two different numbers, and the gap between them is the point. The authored
+  // rate is how much of the DECK ends a run; the observed rate is how often a
+  // RUN actually ends early, which compounds over every gamble the player takes
+  // and always lands far higher.
+  const allBranches = allCards().flatMap((card) =>
+    card.options.flatMap((option) => option.branches ?? []),
+  );
+  const deadEndBranches = allBranches.filter((branch) => branch.endsRun).length;
   const earlyTotal = [...earlyEndingsByCause.values()].reduce((sum, count) => sum + count, 0);
+
+  console.log(
+    `  dead-end branches      ${((deadEndBranches / allBranches.length) * 100).toFixed(1).padStart(5)}%` +
+      `   ${deadEndBranches}/${allBranches.length} of the deck (target ${(DEAD_END_TARGET_RATE * 100).toFixed(0)}%)`,
+  );
   console.log(
     `  ended early            ${formatPercentage(earlyTotal, runs).padStart(6)}` +
-      '   <- a branch stopped the run before election day',
+      '   <- observed: compounds over every gamble taken',
   );
   for (const [cause, count] of [...earlyEndingsByCause].sort((a, b) => b[1] - a[1])) {
     console.log(`    ${cause.padEnd(19)}${formatPercentage(count, runs).padStart(6)}`);

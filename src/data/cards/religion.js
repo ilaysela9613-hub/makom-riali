@@ -21,23 +21,45 @@ export default [
     options: [
       {
         label: 'להתנגד ולהישאר בקו הסטטוס קוו',
-        certainText: 'החרדים סופרים אותך · המרכז החילוני עוזב',
-        stance: { axis: 'religion', direction: +1 },
-        axes: { religion: +0.06 },
-        capital: { party_standing: +5, popularity: -3 },
-        segments: { haredi: +1.6, secular_center: -1.3 },
+        branches: [
+          {
+            chance: 75,
+            text: 'החרדים סופרים אותך · המרכז החילוני עוזב',
+            axes: { religion: +0.06 },
+            capital: { party_standing: +5, popularity: -3 },
+            segments: { haredi: +1.6, secular_center: -1.3 },
+          },
+          {
+            chance: 25,
+            text: '',
+            axes: { religion: +0.06 },
+            capital: { popularity: -3 },
+            segments: { secular_center: -1.3 },
+          },
+        ],
       },
       {
         label: 'לתמוך בהסדר המקומי ולומר שזו החלטה של הרשות',
-        certainText: 'המרכז החילוני עובר אליך · נטישה חדה בחרדים',
-        stance: { axis: 'religion', direction: -1 },
-        axes: { religion: -0.07 },
-        capital: { popularity: +5, party_standing: -4 },
-        segments: { secular_center: +1.5, haredi: -2.0 },
+        branches: [
+          {
+            chance: 65,
+            text: 'המרכז החילוני עובר אליך · נטישה חדה בחרדים',
+            axes: { religion: -0.07 },
+            capital: { popularity: +5, party_standing: -4 },
+            segments: { secular_center: +1.5, haredi: -2 },
+          },
+          {
+            chance: 35,
+            text: 'הרשות נסוגה ואתה נשארת חשוף',
+            axes: { religion: -0.07 },
+            capital: { party_standing: -4 },
+            segments: { haredi: -2 },
+          },
+        ],
       },
       {
         label: 'לומר שזו סוגיה לרשויות המקומיות ולא להצביע',
-        certainText: 'לא הרווחת מאף צד',
+        abstainText: 'לא הרווחת מאף צד',
         capital: { credibility: -3, party_standing: -2 },
         segments: { secular_center: +0.3 },
       },
@@ -62,15 +84,26 @@ export default [
     options: [
       {
         label: 'להצביע בעד, כמו שהתבקשת',
-        certainText: 'עלייה במעמד בסיעה · הצעירים עוזבים',
-        stance: { axis: 'religion', direction: +1 },
-        axes: { religion: +0.08 },
-        capital: { party_standing: +6, credibility: -4 },
-        segments: { haredi: +1.2, young_reservists: -1.5 },
+        branches: [
+          {
+            chance: 80,
+            text: 'עלייה במעמד בסיעה · הצעירים עוזבים',
+            axes: { religion: +0.08 },
+            capital: { party_standing: +6, credibility: -4 },
+            segments: { haredi: +1.2, young_reservists: -1.5 },
+          },
+          {
+            chance: 20,
+            text: '',
+            axes: { religion: +0.08 },
+            capital: { credibility: -4 },
+            segments: { young_reservists: -1.5 },
+          },
+        ],
       },
       {
         label: 'להיעדר מההצבעה',
-        certainText: 'מחיר קטן בכל הכיוונים',
+        abstainText: 'מחיר קטן בכל הכיוונים',
         capital: { credibility: -2, party_standing: -3 },
       },
       {
@@ -110,16 +143,38 @@ export default [
     options: [
       {
         label: 'לתמוך בהצעה',
-        certainText: 'מרכז חילוני ודוברי רוסית עוברים אליך · מחיר בסיעה',
-        axes: { religion: -0.08 },
-        capital: { popularity: +5, party_standing: -4 },
-        segments: { secular_center: +1.3, russian_speaking: +1.1 },
+        branches: [
+          {
+            chance: 65,
+            text: 'מרכז חילוני ודוברי רוסית עוברים אליך · מחיר בסיעה',
+            axes: { religion: -0.08 },
+            capital: { popularity: +5, party_standing: -4 },
+            segments: { secular_center: +1.3, russian_speaking: +1.1 },
+          },
+          {
+            chance: 35,
+            text: '',
+            axes: { religion: -0.08 },
+            capital: { party_standing: -4 },
+          },
+        ],
       },
       {
         label: 'להתנגד ולהסביר שזה לא הזמן',
-        certainText: 'הקואליציה מרוצה · המרכז החילוני עוזב',
-        capital: { party_standing: +5, credibility: -3 },
-        segments: { secular_center: -1.2 },
+        branches: [
+          {
+            chance: 70,
+            text: 'הקואליציה מרוצה · המרכז החילוני עוזב',
+            capital: { party_standing: +5, credibility: -3 },
+            segments: { secular_center: -1.2 },
+          },
+          {
+            chance: 30,
+            text: '',
+            capital: { credibility: -3 },
+            segments: { secular_center: -1.2 },
+          },
+        ],
       },
     ],
   },
@@ -137,16 +192,39 @@ export default [
     options: [
       {
         label: 'לתמוך ברפורמה',
-        certainText: 'המרכז החילוני עובר אליך · החרדים עוזבים',
-        axes: { religion: -0.06 },
-        capital: { popularity: +4, party_standing: -3 },
-        segments: { secular_center: +1.2, haredi: -1.4 },
+        branches: [
+          {
+            chance: 65,
+            text: 'המרכז החילוני עובר אליך · החרדים עוזבים',
+            axes: { religion: -0.06 },
+            capital: { popularity: +4, party_standing: -3 },
+            segments: { secular_center: +1.2, haredi: -1.4 },
+          },
+          {
+            chance: 35,
+            text: '',
+            axes: { religion: -0.06 },
+            capital: { party_standing: -3 },
+            segments: { haredi: -1.4 },
+          },
+        ],
       },
       {
         label: 'להתנגד ולהגן על מערך הפיקוח הקיים',
-        certainText: 'החרדים עוברים אליך · המרכז החילוני עוזב',
-        capital: { party_standing: +4, popularity: -3 },
-        segments: { haredi: +1.3, secular_center: -1.0 },
+        branches: [
+          {
+            chance: 70,
+            text: 'החרדים עוברים אליך · המרכז החילוני עוזב',
+            capital: { party_standing: +4, popularity: -3 },
+            segments: { haredi: +1.3, secular_center: -1 },
+          },
+          {
+            chance: 30,
+            text: '',
+            capital: { popularity: -3 },
+            segments: { secular_center: -1 },
+          },
+        ],
       },
     ],
   },
@@ -164,7 +242,6 @@ export default [
     options: [
       {
         label: 'לתמוך במינוי',
-        integrity: 'dirty',
         branches: [
           {
             chance: 75,
@@ -181,7 +258,7 @@ export default [
       },
       {
         label: 'לומר שאתה לא מתערב במינויים מקומיים',
-        certainText: 'שמרת על עצמך · מישהו יזכור שסירבת',
+        abstainText: 'שמרת על עצמך · מישהו יזכור שסירבת',
         capital: { credibility: +4, party_standing: -3 },
       },
     ],

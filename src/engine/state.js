@@ -6,8 +6,8 @@
 // there is no reason to trade clarity for allocation count.
 
 import { createRng } from './rng.js';
-import ARCHETYPES from '../data/archetypes.js';
 import SEGMENTS from '../data/segments.js';
+import { STREAM_IDS, streamById } from '../data/streams.js';
 import {
   ACT_SCHEDULE,
   FINAL_TURN,
@@ -19,10 +19,11 @@ import {
   AFFINITY_MAXIMUM,
   STARTING_PATRON,
   OWN_PARTY_ID,
+  POPULARITY_BANDS,
 } from '../data/tuning.js';
 
 export const AXIS_KEYS = ['security', 'religion', 'economy', 'rule_of_law'];
-export const CAPITAL_KEYS = ['popularity', 'party_standing', 'credibility', 'resources'];
+export const CAPITAL_KEYS = ['popularity', 'party_standing', 'credibility'];
 export const SEGMENT_KEYS = Object.keys(SEGMENTS);
 export const POSTURES = [
   'right_religious',
@@ -67,14 +68,15 @@ function completeAffinity(partialAffinity) {
 }
 
 /**
- * @param {number} seed          a run is fully reproducible from this
- * @param {string} archetypeId   key into data/archetypes.js
+ * @param {number} seed      a run is fully reproducible from this
+ * @param {string} streamId  key into data/streams.js — the whole of character
+ *                           creation since M8 folded the old roles in
  */
-export function createRun(seed, archetypeId) {
-  const archetype = ARCHETYPES[archetypeId];
-  if (!archetype) {
+export function createRun(seed, streamId) {
+  const stream = streamById(streamId);
+  if (!stream) {
     throw new Error(
-      `createRun: unknown archetype id "${archetypeId}". Known ids: ${Object.keys(ARCHETYPES).join(', ')}`,
+      `createRun: unknown stream id "${streamId}". Known ids: ${STREAM_IDS.join(', ')}`,
     );
   }
 
@@ -89,11 +91,14 @@ export function createRun(seed, archetypeId) {
     turn: 1,
     act: actForTurn(1),
 
-    archetype: archetypeId,
-    axes: { ...archetype.axes },
-    posture: archetype.posture,
-    capital: { ...archetype.capital },
-    affinity: completeAffinity(archetype.affinity),
+    // Declared identity. Chosen before the first card and never mutated during a
+    // run — representing a shift is a flip event, not a change of stream.
+    // Distinct from `party` (current list) and `posture` (coalition arithmetic).
+    stream: streamId,
+    axes: { ...stream.startingAxes },
+    posture: 'anyone',
+    capital: { ...stream.startingCapital },
+    affinity: completeAffinity(stream.startingBlocs),
     segments: startingSegmentSupport(),
 
     party: null,
@@ -125,8 +130,6 @@ export function createRun(seed, archetypeId) {
     // Public positions the player has taken, axis -> { direction, turn }.
     // Contradicting one is a flip, and voters leave over it (engine/credibility.js).
     stances: {},
-    // Self-serving arrangements taken so far. Breaks at DIRTY_THRESHOLD.
-    dirtyLoad: 0,
     // Every defection that has happened, for the end card and the turn feedback.
     defections: [],
 
@@ -140,7 +143,7 @@ export function createRun(seed, archetypeId) {
     // named another one. Non-null means the run is over now.
     endedEarly: null,
 
-    flags: [...(archetype.flags ?? [])],
+    flags: [],
     seen: [],
     // Card ids made drawable by an option's `unlocks`.
     unlocked: [],
@@ -257,6 +260,23 @@ export function isRunOver(state) {
 /** Why the run stopped before election day, or null if it ran its course. */
 export function earlyEnding(state) {
   return state.endedEarly;
+}
+
+/**
+ * Which popularity band the player is in right now.
+ *
+ * A pure derivation, never stored: the band is always whatever the current
+ * `capital.popularity` falls into, so it cannot drift out of step with the meter
+ * it describes. The number itself is never rendered anywhere but the debug panel.
+ *
+ * @returns {{ min: number, label: string }}
+ */
+export function popularityBand(state) {
+  const popularity = state.capital.popularity;
+  for (let index = POPULARITY_BANDS.length - 1; index >= 0; index -= 1) {
+    if (popularity >= POPULARITY_BANDS[index].min) return POPULARITY_BANDS[index];
+  }
+  return POPULARITY_BANDS[0];
 }
 
 /** The maximum affinity the player holds with any single segment. */

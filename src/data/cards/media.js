@@ -20,13 +20,23 @@ export default [
     options: [
       {
         label: 'להגיע מוכן עם מסר אחד ולחזור עליו',
-        certainText: 'עלייה בטוחה בפופולריות · עולה זמן והכנה',
-        capital: { popularity: +6, resources: -4 },
-        segments: { secular_center: +0.5 },
+        branches: [
+          {
+            chance: 75,
+            text: 'עלייה בטוחה בפופולריות · עולה זמן והכנה',
+            capital: { popularity: +6, party_standing: -4 },
+            segments: { secular_center: +0.5 },
+          },
+          {
+            chance: 25,
+            text: '',
+            capital: { party_standing: -4 },
+          },
+        ],
       },
       {
         label: 'לוותר על הראיון ולשמור על עצמך',
-        certainText: 'ללא השפעה',
+        abstainText: 'ללא השפעה',
         capital: { credibility: +2, popularity: -2 },
       },
       {
@@ -35,7 +45,7 @@ export default [
           {
             chance: 65,
             text: 'הרגע רץ ברשת לטובתך — קפיצה גדולה בפופולריות',
-            capital: { popularity: +13, resources: -5 },
+            capital: { popularity: +13, party_standing: -5 },
             segments: { secular_center: +1.2, young_reservists: +1.0 },
           },
           {
@@ -83,7 +93,7 @@ export default [
       },
       {
         label: 'לוותר ולהישאר עם הקהל שלך',
-        certainText: 'הבסיס נשמר · לא הרחבת כלום',
+        abstainText: 'הבסיס נשמר · לא הרחבת כלום',
         capital: { party_standing: +3, popularity: -3 },
         segments: { religious_zionist: +0.5 },
       },
@@ -103,15 +113,36 @@ export default [
     options: [
       {
         label: 'לקחת את הפינה',
-        certainText: 'מסורתיים ופריפריה עוברים אליך · עולה זמן וכסף',
-        capital: { resources: -6 },
-        segments: { traditional_mizrahi: +1.5, periphery_general: +1.0 },
+        branches: [
+          {
+            chance: 70,
+            text: 'מסורתיים ופריפריה עוברים אליך · שבוע אחרי שבוע',
+            capital: { party_standing: -6 },
+            segments: { traditional_mizrahi: +1.5, periphery_general: +1 },
+          },
+          {
+            chance: 30,
+            text: '',
+            capital: { party_standing: -6 },
+          },
+        ],
       },
       {
         label: 'לוותר ולהשקיע ברשתות',
-        certainText: 'צעירים עוברים אליך · ויתרת על קהל שבאמת מצביע',
-        capital: { resources: -3 },
-        segments: { young_reservists: +1.1, traditional_mizrahi: -0.5 },
+        branches: [
+          {
+            chance: 60,
+            text: 'צעירים עוברים אליך · ויתרת על קהל שבאמת מצביע',
+            capital: { party_standing: -3 },
+            segments: { young_reservists: +1.1, traditional_mizrahi: -0.5 },
+          },
+          {
+            chance: 40,
+            text: '',
+            capital: { party_standing: -3 },
+            segments: { traditional_mizrahi: -0.5 },
+          },
+        ],
       },
     ],
   },
@@ -129,8 +160,18 @@ export default [
     options: [
       {
         label: 'לפרסם את הנאום המלא ולהסביר',
-        certainText: 'הסיפור ידעך לבד · מחיר קטן בפופולריות',
-        capital: { popularity: -3, credibility: +2 },
+        branches: [
+          {
+            chance: 65,
+            text: 'הסיפור ידעך לבד · מחיר קטן בפופולריות',
+            capital: { popularity: -3, credibility: +2 },
+          },
+          {
+            chance: 35,
+            text: 'ההסבר רץ פחות מהקטע',
+            capital: { popularity: -3 },
+          },
+        ],
       },
       {
         label: 'לצאת להתקפה ולהפוך את זה לסיפור על מי ערך',
@@ -164,15 +205,34 @@ export default [
     options: [
       {
         label: 'לרכך את הניסוח ולצאת עם יחס אוהד',
-        integrity: 'dirty',
-        certainText: 'כתבה אוהדת · המרכז החילוני עובר אליך',
-        capital: { popularity: +5, credibility: -4 },
-        segments: { secular_center: +1.1 },
+        branches: [
+          {
+            chance: 70,
+            text: 'כתבה אוהדת · המרכז החילוני עובר אליך',
+            capital: { popularity: +5, credibility: -4 },
+            segments: { secular_center: +1.1 },
+          },
+          {
+            chance: 30,
+            text: '',
+            capital: { credibility: -4 },
+          },
+        ],
       },
       {
         label: 'להגיד בדיוק את מה שאתה אומר בכל מקום',
-        certainText: 'הכתבה תהיה קרירה · לא ויתרת על כלום',
-        capital: { credibility: +6, popularity: -4 },
+        branches: [
+          {
+            chance: 75,
+            text: 'הכתבה תהיה קרירה · לא ויתרת על כלום',
+            capital: { credibility: +6, popularity: -4 },
+          },
+          {
+            chance: 25,
+            text: '',
+            capital: { popularity: -4 },
+          },
+        ],
       },
     ],
   },

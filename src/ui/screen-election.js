@@ -15,14 +15,8 @@
 import PARTIES from '../data/parties.js';
 import { ELECTION_THRESHOLD_SHARE, KNESSET_SEATS } from '../data/tuning.js';
 import { playerPartyId } from '../engine/index.js';
+import { AXIS_POLES, driftCaption } from '../data/feedback.js';
 import { div, span, formatPercentage } from './dom.js';
-
-const AXIS_LABELS = {
-  security: ['מדיני / פשרה', 'ביטחוני / נץ'],
-  religion: ['הפרדת דת ומדינה', 'סטטוס קוו דתי'],
-  economy: ['סוציאל־דמוקרטי', 'שוק חופשי'],
-  rule_of_law: ['חיזוק ביקורת שיפוטית', 'חיזוק הרשות המחוקקת'],
-};
 
 function seatRow({ partyId, seats, share, maxSeats, isMine, crossed }) {
   const classNames = ['seat-row'];
@@ -92,7 +86,7 @@ export function renderSeatChart({ seats, shares, state }) {
 }
 
 function driftAxis(axisKey, startValue, endValue) {
-  const [negativePole, positivePole] = AXIS_LABELS[axisKey];
+  const [negativePole, positivePole] = AXIS_POLES[axisKey];
   const positionOf = (value) => ((value + 1) / 2) * 100;
 
   return div({ className: 'drift-axis' }, [
@@ -117,12 +111,12 @@ function driftAxis(axisKey, startValue, endValue) {
  * The ideology drift chart — the one place the four axes are ever shown.
  * They run the whole game invisibly and surface here, once, as the reveal.
  */
-export function renderDriftChart({ startingAxes, finalAxes }) {
+export function renderDriftChart({ startingAxes, finalAxes, bandLabel }) {
   return div({ className: 'panel' }, [
     div({ className: 'section-label', text: 'איפה התחלת, איפה סיימת' }),
-    ...Object.keys(AXIS_LABELS).map((axisKey) =>
+    ...Object.keys(AXIS_POLES).map((axisKey) =>
       driftAxis(axisKey, startingAxes[axisKey], finalAxes[axisKey]),
     ),
-    div({ className: 'placeholder-note', text: 'אפור — נקודת הפתיחה · כחול — איפה סיימת' }),
+    div({ className: 'placeholder-note', text: driftCaption(bandLabel) }),
   ]);
 }

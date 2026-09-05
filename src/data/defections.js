@@ -55,20 +55,11 @@ function leaversPhrase(blocIds) {
  * @param {string[]}    defection.blocs     bloc ids that lost voters
  * @returns {{ headline: string, detail: string }} both Hebrew
  */
-export function defectionNarration({ reason, axis, turnsAgo, blocs }) {
-  if (reason === 'flip') {
-    return {
-      headline: 'סתירה בעמדה',
-      detail:
-        `הצבעת נגד מה שהצהרת ${weeksAgoPhrase(turnsAgo)} ${AXIS_SUBJECT[axis] ?? ''}. ` +
-        `${leaversPhrase(blocs)} עזבו אותך.`,
-    };
-  }
-
+export function defectionNarration({ axis, turnsAgo, blocs }) {
   return {
-    headline: 'הצטברו יותר מדי עסקאות',
+    headline: 'סתירה בעמדה',
     detail:
-      'שורה של סידורים שנועדו לך ולא לאף אחד אחר הצטברה לכדי סיפור. ' +
+      `הצבעת נגד מה שהצהרת ${weeksAgoPhrase(turnsAgo)} ${AXIS_SUBJECT[axis] ?? ''}. ` +
       `${leaversPhrase(blocs)} עזבו אותך.`,
   };
 }

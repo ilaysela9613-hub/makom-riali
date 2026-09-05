@@ -52,15 +52,21 @@ export function choiceButton({ label, lines = [], onSelect, modifier = null }) {
     },
     [
       span({ className: 'choice__label', text: label }),
-      ...lines.map((line) =>
-        span({ className: `outcome outcome--${line.valence ?? 'neutral'}` }, [
+      ...lines.map((line) => {
+        // A failure with nothing worth saying still needs its share of the
+        // option's height, or the button jumps around between cards. It gets a
+        // thin muted rule instead of an empty box.
+        const isWordless = !line.text;
+        return span({ className: `outcome outcome--${line.valence ?? 'neutral'}` }, [
           span({
             className: `outcome__chance${line.chance === null ? ' outcome__chance--certain' : ''}`,
             text: line.chance === null ? '·' : `${line.chance}%`,
           }),
-          span({ className: 'outcome__text', text: line.text }),
-        ]),
-      ),
+          isWordless
+            ? span({ className: 'outcome__rule' })
+            : span({ className: 'outcome__text', text: line.text }),
+        ]);
+      }),
     ],
   );
 }

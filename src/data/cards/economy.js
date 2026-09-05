@@ -1,4 +1,4 @@
-// כלכלה ותקציב.
+// כלכלה.
 //
 // PLACEHOLDER CONTENT — see the schema note at the top of security.js.
 
@@ -40,17 +40,38 @@ export default [
       },
       {
         label: 'לתמוך בקיצוץ ולהסביר שהוא הכרחי',
-        certainText: 'עלייה במעמד בסיעה · הפריפריה והמסורתיים עוזבים',
-        stance: { axis: 'economy', direction: +1 },
-        axes: { economy: +0.07 },
-        capital: { party_standing: +7, credibility: -5 },
-        segments: { periphery_general: -1.8, traditional_mizrahi: -0.9 },
+        branches: [
+          {
+            chance: 75,
+            text: 'עלייה במעמד בסיעה · הפריפריה והמסורתיים עוזבים',
+            axes: { economy: +0.07 },
+            capital: { party_standing: +7, credibility: -5 },
+            segments: { periphery_general: -1.8, traditional_mizrahi: -0.9 },
+          },
+          {
+            chance: 25,
+            text: '',
+            axes: { economy: +0.07 },
+            capital: { credibility: -5 },
+            segments: { periphery_general: -1.8, traditional_mizrahi: -0.9 },
+          },
+        ],
       },
       {
         label: 'לנהל מו״מ שקט על שני הסעיפים ולתמוך בשאר',
-        certainText: 'שני הסעיפים ניצלו · אין כותרת ואין רווח ציבורי',
-        capital: { credibility: +4, popularity: -3 },
-        segments: { periphery_general: +0.6 },
+        branches: [
+          {
+            chance: 55,
+            text: 'שני הסעיפים ניצלו · אין כותרת ואין רווח ציבורי',
+            capital: { credibility: +4, popularity: -3 },
+            segments: { periphery_general: +0.6 },
+          },
+          {
+            chance: 45,
+            text: 'הדליפו את המו״מ לפני שנסגר',
+            capital: { popularity: -3 },
+          },
+        ],
       },
     ],
   },
@@ -68,10 +89,21 @@ export default [
     options: [
       {
         label: 'לתמוך בהצעה כפי שהיא',
-        certainText: 'צעירים שממתינים לדיור עוברים אליך · הרשויות זוכרות',
-        axes: { economy: +0.08 },
-        capital: { popularity: +5, party_standing: -3 },
-        segments: { young_reservists: +1.3 },
+        branches: [
+          {
+            chance: 70,
+            text: 'צעירים שממתינים לדיור עוברים אליך · הרשויות זוכרות',
+            axes: { economy: +0.08 },
+            capital: { popularity: +5, party_standing: -3 },
+            segments: { young_reservists: +1.3 },
+          },
+          {
+            chance: 30,
+            text: '',
+            axes: { economy: +0.08 },
+            capital: { party_standing: -3 },
+          },
+        ],
       },
       {
         label: 'לתמוך רק אחרי שיוסיפו סעיף התייעצות',
@@ -91,10 +123,21 @@ export default [
       },
       {
         label: 'להתנגד ולעמוד עם הרשויות',
-        certainText: 'הפריפריה עוברת אליך · מחיר במעמד בסיעה',
-        axes: { economy: -0.06 },
-        capital: { party_standing: -6 },
-        segments: { periphery_general: +1.4 },
+        branches: [
+          {
+            chance: 65,
+            text: 'הפריפריה עוברת אליך · מחיר במעמד בסיעה',
+            axes: { economy: -0.06 },
+            capital: { party_standing: -6 },
+            segments: { periphery_general: +1.4 },
+          },
+          {
+            chance: 35,
+            text: '',
+            axes: { economy: -0.06 },
+            capital: { party_standing: -6 },
+          },
+        ],
       },
     ],
   },
@@ -112,15 +155,36 @@ export default [
     options: [
       {
         label: 'לתמוך בהעלאה מעבר למתווה',
-        certainText: 'הפריפריה עוברת אליך · המגזר העסקי נסגר בפניך',
-        axes: { economy: -0.08 },
-        capital: { popularity: +4, party_standing: -3 },
-        segments: { periphery_general: +1.5 },
+        branches: [
+          {
+            chance: 60,
+            text: 'הפריפריה עוברת אליך · המגזר העסקי נסגר בפניך',
+            axes: { economy: -0.08 },
+            capital: { popularity: +4, party_standing: -3 },
+            segments: { periphery_general: +1.5 },
+          },
+          {
+            chance: 40,
+            text: 'המתווה קרס וההעלאה ירדה מהפרק',
+            axes: { economy: -0.08 },
+            capital: { party_standing: -3 },
+          },
+        ],
       },
       {
         label: 'לאשר את המתווה כפי שסוכם',
-        certainText: 'ללא השפעה ציבורית',
-        capital: { credibility: +4, popularity: -3 },
+        branches: [
+          {
+            chance: 80,
+            text: 'ללא השפעה ציבורית',
+            capital: { credibility: +4, popularity: -3 },
+          },
+          {
+            chance: 20,
+            text: '',
+            capital: { popularity: -3 },
+          },
+        ],
       },
     ],
   },
@@ -133,16 +197,27 @@ export default [
     placeholder: true,
 
     title: 'רפורמה במדרגות המס',
-    text: 'הרפורמה מורידה מס למעמד הביניים ומקצצת בסעיף רווחה כדי לממן את זה. שני הנתונים נכונים, ושניהם יופיעו בכותרת.',
+    text: 'הרפורמה מורידה מס למעמד הביניים ומקצצת בסעיף רווחה כדי לכסות על זה. שני הנתונים נכונים, ושניהם יופיעו בכותרת.',
 
     options: [
       {
         label: 'לתמוך ברפורמה',
-        certainText: 'המרכז החילוני עובר אליך · הפריפריה עוזבת',
-        stance: { axis: 'economy', direction: +1 },
-        axes: { economy: +0.09 },
-        capital: { popularity: +5, party_standing: -3 },
-        segments: { secular_center: +1.2, periphery_general: -1.3 },
+        branches: [
+          {
+            chance: 70,
+            text: 'המרכז החילוני עובר אליך · הפריפריה עוזבת',
+            axes: { economy: +0.09 },
+            capital: { popularity: +5, party_standing: -3 },
+            segments: { secular_center: +1.2, periphery_general: -1.3 },
+          },
+          {
+            chance: 30,
+            text: '',
+            axes: { economy: +0.09 },
+            capital: { party_standing: -3 },
+            segments: { periphery_general: -1.3 },
+          },
+        ],
       },
       {
         label: 'להתנות תמיכה בשמירת סעיף הרווחה',
@@ -177,15 +252,34 @@ export default [
     options: [
       {
         label: 'לדחוף את הרשות שבה בנית את הבסיס שלך',
-        integrity: 'dirty',
-        certainText: 'הפריפריה זוקפת לך את זה · עולה כסף וטובות',
-        capital: { resources: -5, credibility: -3 },
-        segments: { periphery_general: +1.6 },
+        branches: [
+          {
+            chance: 65,
+            text: 'הפריפריה זוקפת לך את זה · עולה לך בטובות',
+            capital: { party_standing: -5, credibility: -3 },
+            segments: { periphery_general: +1.6 },
+          },
+          {
+            chance: 35,
+            text: 'המענק הלך לרשות אחרת',
+            capital: { party_standing: -5, credibility: -3 },
+          },
+        ],
       },
       {
         label: 'לדרוש שהמענק יחולק לפי קריטריון קבוע',
-        certainText: 'יצאת נקי · לא הרווחת אף חבר במפלגה',
-        capital: { credibility: +6, party_standing: -5 },
+        branches: [
+          {
+            chance: 60,
+            text: 'יצאת נקי · לא הרווחת אף חבר במפלגה',
+            capital: { credibility: +6, party_standing: -5 },
+          },
+          {
+            chance: 40,
+            text: '',
+            capital: { party_standing: -5 },
+          },
+        ],
       },
     ],
   },

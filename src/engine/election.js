@@ -16,8 +16,9 @@ import {
   KNESSET_SEATS,
   TURNOUT_VARIANCE_MINIMUM,
   TURNOUT_VARIANCE_MAXIMUM,
+  POLL_NOISE_RANGE,
 } from '../data/tuning.js';
-import { createRng } from './rng.js';
+import { createRng, deriveRng } from './rng.js';
 import { playerPartyId, SEGMENT_KEYS } from './state.js';
 import { ballotPartyIds, surplusAgreements, resolveRecruitDefections } from './party.js';
 import { endTitleFor } from '../data/titles.js';
@@ -155,16 +156,43 @@ export function allocateSeats(shares, agreements) {
   return seats;
 }
 
+// Stream offset for weekly polling noise. Not a balance value — a PRNG stream
+// separator, kept away from the offer streams in slots.js.
+const POLL_NOISE_STREAM = 7000;
+
 /**
- * The weekly poll. Deterministic — no turnout variance, no rng consumed — so
- * the HUD can call it every turn and the ticker moves only when the player's
- * decisions move it.
+ * THIS WEEK'S POLL — a projection, not the result.
  *
- * @returns {{ [partyId: string]: number }} projected seats
+ * Two things separate it from election night: it uses expected turnout rather
+ * than the night's variance, and it carries a week's sampling noise of its own.
+ * That noise is what makes it a poll. Without it the ticker is a pure function
+ * of the player's decisions, sits perfectly still on a quiet week, and lands
+ * within a seat of the final result from turn 1 — which quietly tells the
+ * player the whole campaign is already over.
+ *
+ * Consumes no run randomness: the noise is derived from (seed, turn), so the
+ * same week always polls the same number and repeated renders never flicker.
+ *
+ * @returns {{ [partyId: string]: number }} projected seats this week
  */
 export function poll(state) {
-  const shares = voteShares(state, segmentTurnout(null));
-  return allocateSeats(shares, surplusAgreements(state));
+  const trueShares = voteShares(state, segmentTurnout(null));
+
+  const rng = deriveRng(state.seed, POLL_NOISE_STREAM + state.turn);
+  const polled = {};
+  for (const [partyId, share] of Object.entries(trueShares)) {
+    polled[partyId] = share * rng.range(1 - POLL_NOISE_RANGE, 1 + POLL_NOISE_RANGE);
+  }
+
+  return allocateSeats(polled, surplusAgreements(state));
+}
+
+/**
+ * The underlying shares with no sampling noise — what the poll is an estimate
+ * OF. Used where a stable reading is needed rather than a weekly sample.
+ */
+export function trueSeats(state) {
+  return allocateSeats(voteShares(state, segmentTurnout(null)), surplusAgreements(state));
 }
 
 function largestPartyId(seats) {

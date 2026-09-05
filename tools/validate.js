@@ -24,14 +24,21 @@ import {
   OWN_PARTY_TIER,
   BRANCHES_PER_GAMBLE,
   BRANCH_CHANCE_TOTAL,
+  BRANCH_CHANCE_MINIMUM,
   DEAD_END_TARGET_RATE,
 } from '../src/data/tuning.js';
 import { AXIS_KEYS, CAPITAL_KEYS, SEGMENT_KEYS } from '../src/engine/state.js';
 import { REQUIRES_KEYS, CAMPS } from '../src/engine/cards.js';
-import { INTEGRITY_VALUES } from '../src/engine/credibility.js';
 import { PATRON_KINDS, BETRAYAL_CARD_ID, bindingDirections } from '../src/engine/patron.js';
 
 const CARD_DIRECTORY = 'src/data/cards/';
+
+/**
+ * Hebrew infinitives that describe DOING something, as opposed to standing
+ * back. Used only to warn when `abstainText` is attached to an active choice.
+ */
+const ACTIVE_VERB_PATTERN =
+  /^(לתמוך|להתנגד|להצביע(?! נגד ולהודיע)|לקחת|לקבל|לדרוש|לכתוב|להשקיע|לאמץ|לסגור|לשרוף|לרכך|להסיר|להסכים|להתעמת|לדחוף|לצאת|לפרסם|לנהל|להתנות|לעמוד|ליזום|להגיע מוכן|להתיישר)/;
 
 const KNOWN_PATRON_IDS = Object.keys(PATRONS);
 const KNOWN_PARTY_TIERS = [
@@ -131,6 +138,26 @@ function checkDeltaBlock(file, cardId, location, block, kind, knownKeys, limit) 
   return touched;
 }
 
+/**
+ * `resources` was removed in M6. It gated `requires` and never once appeared in
+ * a decision, which makes it a hidden constant rather than a meter. Anything
+ * still naming it is a card written against a schema that no longer exists.
+ */
+const REMOVED_CAPITAL_KEYS = ['resources'];
+
+function checkRemovedCapital(file, cardId, location, block, kind) {
+  if (!block) return;
+  for (const key of Object.keys(block)) {
+    if (REMOVED_CAPITAL_KEYS.includes(key)) {
+      error(
+        file, cardId, location,
+        `${kind}.${key} — \`${key}\` was removed in M6. Rewrite the gate in terms of ` +
+          'popularity or party_standing, whichever fits what the card actually means.',
+      );
+    }
+  }
+}
+
 /** Readability counts, for the warnings. Errors are checked separately. */
 function countTouched(effects) {
   return {
@@ -140,6 +167,7 @@ function countTouched(effects) {
 }
 
 function checkEffectBlock(file, cardId, location, effects) {
+  checkRemovedCapital(file, cardId, location, effects.capital, 'capital');
   const segmentsTouched = checkDeltaBlock(
     file, cardId, location, effects.segments, 'segments', SEGMENT_KEYS, MAX_SEGMENT_DELTA,
   );
@@ -204,6 +232,7 @@ function checkRequires(file, card, cardIds) {
 
   if (requires.axes) checkRequiresRange(file, card.id, 'requires', 'axes', requires.axes, AXIS_KEYS);
   if (requires.capital) {
+    checkRemovedCapital(file, card.id, 'requires', requires.capital, 'requires.capital');
     checkRequiresRange(file, card.id, 'requires', 'capital', requires.capital, CAPITAL_KEYS);
   }
 
@@ -271,22 +300,39 @@ function checkOption(file, card, option, optionIndex) {
 
   // An option is EXACTLY one of two shapes. There is no third, and no hybrid.
   const isGambleOption = option.branches !== undefined;
-  const isCertainOption = option.certainText !== undefined;
+  const isAbstainOption = option.abstainText !== undefined;
 
-  if (isGambleOption && isCertainOption) {
+  if (isGambleOption && isAbstainOption) {
     error(
       file, card.id, location,
-      'has both `certainText` and `branches` — an option is one or the other, never both',
+      'has both `abstainText` and `branches` — an option is one or the other, never both',
     );
-  } else if (!isGambleOption && !isCertainOption) {
+  } else if (!isGambleOption && !isAbstainOption) {
     error(
       file, card.id, location,
-      'has neither `certainText` nor `branches` — every option must state a certain result or offer two branches',
+      'has neither `abstainText` nor `branches` — every ACTION is a gamble; only a genuine non-action may be certain',
+    );
+  }
+
+  // `abstainText` is reserved for standing back. An option that DOES something
+  // has to carry odds, or the player is being handed a guaranteed outcome for
+  // taking an action — which is the thing this milestone removed.
+  if (isAbstainOption && ACTIVE_VERB_PATTERN.test(option.label)) {
+    warn(
+      file, card.id, location,
+      `\`abstainText\` on an action label ("${option.label}") — abstainText is for abstaining, ` +
+        'refusing or walking away. If the player does something, it needs branches.',
     );
   }
 
   if (option.pill !== undefined) {
-    error(file, card.id, location, '`pill` was removed — state the result in `certainText` or in each branch');
+    error(file, card.id, location, '`pill` was removed — state the outcome in each branch');
+  }
+  if (option.certainText !== undefined) {
+    error(
+      file, card.id, location,
+      '`certainText` was replaced: a non-action uses `abstainText`, an action uses `branches`',
+    );
   }
   if (option.risk !== undefined || option.onFail !== undefined) {
     error(
@@ -295,9 +341,9 @@ function checkOption(file, card, option, optionIndex) {
     );
   }
 
-  if (isCertainOption) {
-    if (typeof option.certainText !== 'string' || option.certainText.length === 0) {
-      error(file, card.id, location, '`certainText` must be a non-empty string');
+  if (isAbstainOption) {
+    if (typeof option.abstainText !== 'string' || option.abstainText.length === 0) {
+      error(file, card.id, location, '`abstainText` must be a non-empty string');
     }
     checkEffectBlock(file, card.id, location, option);
   }
@@ -341,14 +387,22 @@ function checkOption(file, card, option, optionIndex) {
         error(file, card.id, branchLocation, 'branch must be an object');
         return;
       }
-      if (typeof branch.chance !== 'number' || branch.chance <= 0 || branch.chance >= BRANCH_CHANCE_TOTAL) {
+      if (typeof branch.chance !== 'number') {
+        error(file, card.id, branchLocation, `\`chance\` must be a number, got ${JSON.stringify(branch.chance)}`);
+      } else if (
+        branch.chance < BRANCH_CHANCE_MINIMUM ||
+        branch.chance > BRANCH_CHANCE_TOTAL - BRANCH_CHANCE_MINIMUM
+      ) {
         error(
           file, card.id, branchLocation,
-          `\`chance\` is ${JSON.stringify(branch.chance)} — must be a number between 1 and ${BRANCH_CHANCE_TOTAL - 1}`,
+          `\`chance\` is ${branch.chance} — must sit between ${BRANCH_CHANCE_MINIMUM} and ` +
+            `${BRANCH_CHANCE_TOTAL - BRANCH_CHANCE_MINIMUM}. Below the floor it is a trap, not a bet.`,
         );
       }
-      if (typeof branch.text !== 'string' || branch.text.length === 0) {
-        error(file, card.id, branchLocation, '`text` must be a non-empty string — it is what the player reads before choosing');
+      // The winning branch always says what happened. A failure only needs words
+      // when the consequence is not obvious — otherwise a dash, or nothing.
+      if (typeof branch.text !== 'string') {
+        error(file, card.id, branchLocation, '`text` must be a string (empty is allowed on a losing branch)');
       }
       if (branch.endsRun !== undefined && branch.endsRun !== true && typeof branch.endsRun !== 'string') {
         error(
@@ -369,7 +423,7 @@ function checkOption(file, card, option, optionIndex) {
     }
   }
 
-  const { segmentsTouched, capitalTouched } = isCertainOption
+  const { segmentsTouched, capitalTouched } = isAbstainOption
     ? countTouched(option)
     : { segmentsTouched: 0, capitalTouched: 0 };
 

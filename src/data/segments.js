@@ -10,16 +10,16 @@
 // roster be rewritten in September as a single-file edit (CLAUDE.md §8.2): add
 // or delete a party there and this file needs no change at all.
 //
-// Two fields exist for the run's presentation and its integrity model:
+// Two fields exist for the run's presentation and its defection model:
 //
 //   `displayBloc` — which of the three visible BLOCS this segment is drawn
 //   inside. The engine always works on all eight segments; blocs exist purely
 //   so the player tracks three bars instead of eight. Retune the grouping here
 //   and no UI code changes.
 //
-//   `punishes` — how heavily this segment weighs a broken stance versus a dirty
-//   deal. Weights live in tuning.js; see the long note there on why these are
-//   emphatically not moral scores.
+//   `punishes` — how heavily this segment weighs a broken stance. Weights live
+//   in tuning.js; see the note there on why these are emphatically not moral
+//   scores.
 
 import PARTIES from './parties.js';
 import { SEGMENT_PUNISH_WEIGHTS } from './tuning.js';

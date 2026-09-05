@@ -110,9 +110,49 @@ String flag, not an axis:
 `'right_religious' | 'center' | 'arab_parties' | 'anti_incumbent_only' | 'anyone'`
 Changing it mid-run costs heavy `credibility`.
 
+### 2.2b Stream — declared identity
+
+`state.stream`, one of
+`'right_religious' | 'right' | 'center' | 'left' | 'arab_parties'`.
+
+Declared on its own setup screen before the first card and **never mutated
+during a run**. Representing a shift is a flip event, which costs voters; it is
+not a change of stream.
+
+Three separate concepts, and they must not be conflated:
+
+| | what it is | when it moves |
+|---|---|---|
+| `stream` | who the player says they are | never, after setup |
+| `party` | the list they are currently on | whenever an offer is accepted |
+| `posture` | the coalition-arithmetic flag | rarely, at heavy `credibility` cost |
+
+The stream is **the whole of character creation**. `data/streams.js` carries its
+label, its one-line description, and everything the run starts with:
+
+- `startingAxes` — where this stream stands on the four ideology axes.
+- `startingBlocs` — per-segment affinity: how hard its decisions land.
+- `startingCapital` — popularity / party_standing / credibility, summing to 120.
+
+M8 deleted the six starting archetypes and folded them in here. Six roles crossed
+with five streams was thirty starting combinations that could not be balanced and
+that the player could not tell apart.
+
+Party records carry `stream`, used for backer and party eligibility. Nothing
+else — the two cross-stream punishment fields went with M8.
+
+**`tools/balance.js` measures §6.1's 20-point spread across the five streams.**
+
 ### 2.3 Capital meters
 
-`0 … 100`: `popularity`, `party_standing`, `credibility`, `resources`.
+`0 … 100`: `popularity`, `party_standing`, `credibility`.
+
+`resources` was removed in M6. It gated a handful of `requires` blocks and never
+once appeared in a decision the player made — nothing was spent, nothing was
+bought, no card asked the player to allocate it. A meter that only gates
+`requires` and never appears in a decision is not a meter, it is a hidden
+constant. `popularity` is the one surfaced to the player, as a band label and
+never as a number (§2.6).
 
 ### 2.4 Segments
 
@@ -408,6 +448,25 @@ Tests, not disclaimers.
 
 ---
 
+Setup is **screens before the first card, none of them a turn**:
+
+```
+premise  →  stream  →  backer  →  first decision card
+```
+
+Nothing in the turn loop can change the stream or who backs the player. Back is
+allowed between the setup screens and gone once the first card is drawn. Act 2 is
+one turn shorter than SPEC §9 originally had it.
+
+**THERE IS EXACTLY ONE IDEOLOGICAL PUNISHMENT.** Declare a position, contradict
+it later, lose voters from the blocs that punish flips. M8 deleted cross-stream
+punishment and dirty-deal accumulation: each was individually reasonable and
+together they made consequences unreadable, because the player could not tell
+which of them had just taken their voters. Do not add a third.
+
+Stream is declared identity; `party` is current affiliation; `posture` is the
+coalition-arithmetic flag. See §2.2b.
+
 ## 7. Milestones
 
 | # | Deliverable | Gate |
@@ -444,7 +503,14 @@ their attention on Hebrew content rather than on the engine.
   `segment` (not `group`/`demographic`), `seat` (not `mandate` in some places
   and `seat` in others — the §5 API fixes this one on `seat`), `patron` (not
   `sponsor`/`backer`), `stance` (not `position`/`pledge`/`commitment`),
-  `defection` (not `backlash`/`churn`/`walkout`).
+  `defection` (not `backlash`/`churn`/`walkout`), `branch` (not `outcome`/`path`),
+  `gamble` (not `risk`/`bet`), `betrayal` (not `turn`/`double-cross`), `abstain`
+  (the non-action option shape — not `pass`/`skip`), `roll` (the visible
+  resolution — not `spin`/`draw`), `band` (the popularity label — NOT `tier`,
+  `level` or `rank`, all three of which already mean other things here: party
+  tier, act, and slot), `stream` (the player's declared identity — NOT `bloc`,
+  `camp` or `wing`: `bloc` is the display grouping of segments, `camp` is the
+  card balance tag, and the three are three different things).
   A bilingual domain makes drift here very easy and very confusing.
 - `segment` and `bloc` are **different concepts and both are needed.** A
   `segment` is one of the eight units the engine actually simulates; a `bloc` is

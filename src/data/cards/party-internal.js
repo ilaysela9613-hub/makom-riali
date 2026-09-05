@@ -19,19 +19,37 @@ export default [
     options: [
       {
         label: 'לקחת את המתפקדים ולהודות יפה',
-        integrity: 'dirty',
         unlocks: ['list_reserved_slot_demand'],
-        certainText: 'קפיצה גדולה במעמד בסיעה · החוב נרשם',
-        capital: { party_standing: +10, credibility: -8 },
+        branches: [
+          {
+            chance: 75,
+            text: 'קפיצה גדולה במעמד בסיעה · החוב נרשם',
+            capital: { party_standing: +10, credibility: -8 },
+          },
+          {
+            chance: 25,
+            text: 'שליש מהטפסים נפסלו',
+            capital: { credibility: -8 },
+          },
+        ],
       },
       {
         label: 'לסרב בנימוס ולבנות רשימה משלך',
-        certainText: 'בנייה איטית ויקרה · אף אחד לא מחזיק בך',
-        capital: { credibility: +6, party_standing: -3, resources: -4 },
+        branches: [
+          {
+            chance: 60,
+            text: 'בנייה איטית · אף אחד לא מחזיק בך',
+            capital: { credibility: +6, party_standing: -7 },
+          },
+          {
+            chance: 40,
+            text: '',
+            capital: { party_standing: -7 },
+          },
+        ],
       },
       {
         label: 'לקחת, ולספר על זה בעצמך לפני שמישהו אחר יספר',
-        integrity: 'dirty',
         unlocks: ['list_reserved_slot_demand'],
         branches: [
           {
@@ -59,28 +77,38 @@ export default [
     placeholder: true,
 
     title: 'קמפיין הרשמת מתפקדים',
-    text: 'שלושה שבועות להרשמה. כל מתפקד עולה כסף וכל מתפקד שווה קול, וההפרש בין השניים הוא כל המקצוע.',
+    text: 'שלושה שבועות להרשמה. כל מתפקד דורש טלפון אישי וכל מתפקד שווה קול, וההפרש בין השניים הוא כל המקצוע.',
 
     options: [
       {
-        label: 'להשקיע את כל מה שיש לך',
+        label: 'לרתום כל מי שחייב לך טובה',
         branches: [
           {
             chance: 60,
             text: 'הקמפיין הביא — קפיצה גדולה במעמד בסיעה',
-            capital: { party_standing: +12, resources: -14 },
+            capital: { party_standing: +12, credibility: -10 },
           },
           {
             chance: 40,
-            text: 'הכסף נשרף ורוב הטפסים לא הוגשו בזמן',
-            capital: { party_standing: +2, resources: -14 },
+            text: 'רוב הטפסים לא הוגשו בזמן',
+            capital: { party_standing: +2, credibility: -10 },
           },
         ],
       },
       {
-        label: 'להשקיע במידה ולשמור מזומן לקמפיין',
-        certainText: 'עלייה קטנה במעמד · הקופה נשמרת',
-        capital: { party_standing: +3, resources: -4 },
+        label: 'לרתום רק את מי שבטוח מגיע',
+        branches: [
+          {
+            chance: 75,
+            text: 'עלייה קטנה במעמד · בלי לשרוף אף אחד',
+            capital: { party_standing: +3, credibility: -3 },
+          },
+          {
+            chance: 25,
+            text: '',
+            capital: { credibility: -3 },
+          },
+        ],
       },
     ],
   },
@@ -103,26 +131,35 @@ export default [
     options: [
       {
         label: 'להצביע עם הסיעה',
-        integrity: 'dirty',
-        certainText: 'עלייה במעמד בסיעה',
-        capital: { party_standing: +6, credibility: -5 },
+        branches: [
+          {
+            chance: 80,
+            text: 'עלייה במעמד בסיעה',
+            capital: { party_standing: +6, credibility: -5 },
+          },
+          {
+            chance: 20,
+            text: '',
+            capital: { credibility: -5 },
+          },
+        ],
       },
       {
         label: 'לא להגיע לאולם',
-        certainText: 'אף אחד לא מרוצה',
+        abstainText: 'אף אחד לא מרוצה',
         capital: { party_standing: -3, credibility: -1 },
       },
       {
         label: 'להצביע נגד ולהודיע על כך מראש',
         branches: [
           {
-            chance: 85,
+            chance: 80,
             text: 'יצאת כמי שיש לו עמוד שדרה — עלייה בפופולריות',
             capital: { popularity: +9, party_standing: -7 },
             segments: { secular_center: +1.1 },
           },
           {
-            chance: 15,
+            chance: 20,
             text: 'הוצאת מהסיעה — הריצה שלך נגמרת כאן',
             endsRun: true,
             capital: { party_standing: -20 },
@@ -146,9 +183,18 @@ export default [
     options: [
       {
         label: 'להסכים ולהתמקח על מקום אחר',
-        integrity: 'dirty',
-        certainText: 'שקט פנימי · ירדת ברשימה',
-        capital: { party_standing: +4, popularity: -3 },
+        branches: [
+          {
+            chance: 65,
+            text: 'שקט פנימי · ירדת ברשימה',
+            capital: { party_standing: +4, popularity: -3 },
+          },
+          {
+            chance: 35,
+            text: 'לקחו את המקום ולא נתנו אחר',
+            capital: { popularity: -3 },
+          },
+        ],
       },
       {
         label: 'להתעמת ולדרוש הכרעה של היו״ר',
@@ -177,14 +223,25 @@ export default [
     placeholder: true,
 
     title: 'אולטימטום מהשותף הקואליציוני',
-    text: 'שותפה בקואליציה מאיימת לפרוש אם סעיף מסוים לא יוסר מהתקציב. הסעיף הזה הוא בדיוק מה שהבטחת לבוחרים שלך.',
+    text: 'שותפה בקואליציה מאיימת לפרוש אם סעיף מסוים לא יוסר מהצעת החוק. הסעיף הזה הוא בדיוק מה שהבטחת לבוחרים שלך.',
 
     options: [
       {
         label: 'להסיר את הסעיף ולשמור על הקואליציה',
-        certainText: 'הקואליציה שרדה · הבוחרים שלך ראו',
-        capital: { credibility: -8, party_standing: +5 },
-        segments: { periphery_general: -1.1 },
+        branches: [
+          {
+            chance: 70,
+            text: 'הקואליציה שרדה · הבוחרים שלך ראו',
+            capital: { credibility: -8, party_standing: +5 },
+            segments: { periphery_general: -1.1 },
+          },
+          {
+            chance: 30,
+            text: '',
+            capital: { credibility: -8 },
+            segments: { periphery_general: -1.1 },
+          },
+        ],
       },
       {
         label: 'לעמוד על הסעיף',

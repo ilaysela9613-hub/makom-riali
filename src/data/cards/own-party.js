@@ -23,15 +23,35 @@ export default [
     options: [
       {
         label: 'לסגור את הרשימה עכשיו עם מי שכבר בפנים',
-        certainText: 'הרשימה יציבה · ויתרת על שמות גדולים',
-        capital: { credibility: +6, popularity: -3 },
-        segments: { secular_center: +0.5 },
+        branches: [
+          {
+            chance: 80,
+            text: 'הרשימה יציבה · ויתרת על שמות גדולים',
+            capital: { credibility: +6, popularity: -3 },
+            segments: { secular_center: +0.5 },
+          },
+          {
+            chance: 20,
+            text: '',
+            capital: { popularity: -3 },
+          },
+        ],
       },
       {
-        label: 'לשרוף משאבים ולסגור את שני השמות',
-        certainText: 'צעירים ומרכז חילוני עוברים אליך · יקר מאוד',
-        capital: { resources: -16, popularity: +8 },
-        segments: { young_reservists: +1.4, secular_center: +1.0 },
+        label: 'לשרוף כל טובה שיש לך ולסגור את שני השמות',
+        branches: [
+          {
+            chance: 65,
+            text: 'צעירים ומרכז חילוני עוברים אליך · לא נשאר לך מה לבקש',
+            capital: { party_standing: -16, popularity: +8 },
+            segments: { young_reservists: +1.4, secular_center: +1 },
+          },
+          {
+            chance: 35,
+            text: 'השמות חתמו במקום אחר',
+            capital: { party_standing: -16 },
+          },
+        ],
       },
       {
         label: 'לצאת להודעה על רשימה פתוחה ולחכות עד הרגע האחרון',

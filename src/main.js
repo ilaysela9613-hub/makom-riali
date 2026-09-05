@@ -21,18 +21,24 @@ import {
   poll,
   blocReadout,
   playerPartyId,
+  popularityBand,
   runElection,
 } from './engine/index.js';
 import { renderPatronScreen } from './ui/screen-patron.js';
 import { renderOfferScreen } from './ui/screen-offer.js';
-import { renderCardScreen, renderQuietTurn, renderFeedbackBeat } from './ui/screen-card.js';
+import { renderCardScreen, renderQuietTurn, renderFeedbackBeat, renderRoll } from './ui/screen-card.js';
 import { renderSlotHud, bestSlotRow } from './ui/hud-slots.js';
 import { renderBlocHud } from './ui/hud-blocs.js';
 import { renderPollHud } from './ui/hud-poll.js';
 import { renderStartScreen } from './ui/screen-start.js';
+import { renderStreamScreen } from './ui/screen-stream.js';
 import { renderEndScreen } from './ui/screen-end.js';
 import { isDebugEnabled, renderDebugPanel } from './ui/debug-panel.js';
-import { FEEDBACK_BEAT_MS, FEEDBACK_BEAT_DEFECTION_MS } from './data/tuning.js';
+import {
+  FEEDBACK_BEAT_MS,
+  FEEDBACK_BEAT_DEFECTION_MS,
+  ROLL_DURATION_MS,
+} from './data/tuning.js';
 import { NARRATABLE_CAPITAL } from './data/feedback.js';
 import { div } from './ui/dom.js';
 
@@ -44,14 +50,18 @@ const root = document.getElementById('app');
  */
 const session = {
   state: null,
-  phase: 'start', // start | patron | turn | feedback | election
+  // Setup runs start -> stream -> patron, and only then the first card.
+  // Back is allowed between the setup screens and never after.
+  phase: 'start', // start | stream | patron | turn | rolling | feedback | election
+  // The live roll in flight: { optionIndex, roll }. Input is locked while set.
+  pendingRoll: null,
   resolution: null,
   outcome: null,
   startingAxes: null,
   forcedCardId: null,
   isDebugOpen: false,
   isSlotTableOpen: false,
-  selectedArchetypeId: null,
+  selectedStreamId: null,
 
   // Everything the HUD looked like BEFORE the decision being narrated. The bars
   // and the seat count animate from here to the current state.
@@ -66,6 +76,7 @@ function snapshot(state) {
   return {
     blocs: blocReadout(state),
     capital: { ...state.capital },
+    band: popularityBand(state).label,
     seats: poll(state),
     slot: slotRow ? slotRow.slot : null,
     slotPartyName: slotRow ? slotRow.partyName : null,
@@ -82,11 +93,13 @@ function randomSeed() {
 // Transitions
 // ---------------------------------------------------------------------------
 
-function startRun(seed, archetypeId) {
-  const state = createRun(seed, archetypeId);
+function startRun(seed, streamId) {
+  const state = createRun(seed, streamId);
   session.state = state;
   session.startingAxes = { ...state.axes };
   session.before = snapshot(state);
+  // The stream IS character creation, so the run state exists the moment it is
+  // chosen and patron eligibility filters against real opening capital.
   session.phase = 'patron';
   session.resolution = null;
   session.outcome = null;
@@ -137,17 +150,50 @@ function handlePatronChosen(patronId) {
   if (patronId !== session.state.patron) {
     session.state = choosePatron(session.state, patronId);
   }
+  // Setup is over. From here the first card is drawn and there is no way back.
+  session.before = snapshot(session.state);
   session.phase = 'turn';
   render();
 }
 
 function handleOptionChosen(optionIndex) {
   const card = cardForThisTurn();
+  const option = card.options[optionIndex];
+
+  // A non-action has nothing to roll. It resolves on the spot.
+  if (!option.branches) {
+    resolveOption(optionIndex, null);
+    return;
+  }
+
+  // THE ONE LIVE RANDOM NUMBER IN THE GAME (engine/cards.js explains the
+  // carve-out). Rolled here, before the animation, so the marker can sweep to
+  // the exact position that decides the branch — and so the two can never
+  // disagree about where it landed.
+  session.pendingRoll = { optionIndex, roll: Math.random() };
+  session.phase = 'rolling';
+  clearBeatTimer();
+  session.beatTimer = window.setTimeout(() => {
+    const { optionIndex: index, roll } = session.pendingRoll;
+    session.pendingRoll = null;
+    resolveOption(index, roll);
+  }, ROLL_DURATION_MS);
+  render();
+}
+
+/** Applies the chosen option and hands over to the post-turn beat. */
+function resolveOption(optionIndex, roll) {
+  const card = cardForThisTurn();
   // Capture the HUD as it stands BEFORE the decision, so the beat can animate
   // the bars and the seat count away from where the player last saw them.
   session.before = snapshot(session.state);
 
-  const { state, resolution } = applyOption(session.state, card.id, optionIndex);
+  const { state, resolution } = applyOption(
+    session.state,
+    card.id,
+    optionIndex,
+    roll === null ? {} : { rng: () => roll },
+  );
   session.state = state;
   session.resolution = { ...resolution, optionLabel: card.options[optionIndex].label };
   session.phase = 'feedback';
@@ -199,7 +245,9 @@ function movementSinceDecision() {
     difference: state.capital[capitalKey] - before.capital[capitalKey],
   }));
 
-  return { blocMovement, capitalMovement, slotChange, seatChange };
+  const bandChanged = popularityBand(state).label !== before.band;
+
+  return { blocMovement, capitalMovement, slotChange, seatChange, bandChanged };
 }
 
 // ---------------------------------------------------------------------------
@@ -225,6 +273,13 @@ function renderTurn() {
 
   const card = cardForThisTurn();
   if (!card) return renderQuietTurn({ onContinue: advanceTurn });
+
+  // While the roll is in flight the option list is gone, so there is nothing to
+  // click and no way to skip it.
+  if (session.phase === 'rolling' && session.pendingRoll) {
+    return renderRoll({ card, ...session.pendingRoll });
+  }
+
   return renderCardScreen({ card, onChoose: handleOptionChosen });
 }
 
@@ -234,9 +289,9 @@ function renderPlayingScreens() {
   const movement = isBeat ? movementSinceDecision() : null;
 
   const body =
-    session.phase === 'patron'
-      ? renderPatronScreen({ state, onChoose: handlePatronChosen })
-      : isBeat
+    session.phase === 'rolling'
+        ? renderTurn()
+        : isBeat
         ? renderFeedbackBeat({
             resolution: session.resolution,
             blocMovement: movement.blocMovement,
@@ -260,6 +315,7 @@ function renderPlayingScreens() {
         session.isSlotTableOpen = isOpen;
       },
       hasChanged: Boolean(movement?.slotChange),
+      bandChanged: Boolean(movement?.bandChanged),
     }),
     body,
   ]);
@@ -269,28 +325,63 @@ function renderPlayingScreens() {
 // Render
 // ---------------------------------------------------------------------------
 
+/** One screen per phase. A ternary chain six deep is not a thing worth reading. */
+function screenForPhase() {
+  if (session.phase === 'start') {
+    return renderStartScreen({
+      onStart: () => {
+        session.phase = 'stream';
+        render();
+      },
+    });
+  }
+
+  if (session.phase === 'stream') {
+    return renderStreamScreen({
+      selectedStreamId: session.selectedStreamId,
+      onSelect: (streamId) => {
+        session.selectedStreamId = streamId;
+        render();
+      },
+      onBack: () => {
+        session.phase = 'start';
+        render();
+      },
+      onConfirm: (streamId) => startRun(randomSeed(), streamId),
+    });
+  }
+
+  if (session.phase === 'patron') {
+    return renderPatronScreen({
+      state: session.state,
+      onChoose: handlePatronChosen,
+      onBack: () => {
+        // Nothing has been drawn yet, so stepping back is free. Past this
+        // screen the first card is dealt and there is no way back.
+        session.phase = 'stream';
+        render();
+      },
+    });
+  }
+
+  if (session.phase === 'election') {
+    return renderEndScreen({
+      outcome: session.outcome,
+      startingAxes: session.startingAxes,
+      onRestart: () => {
+        session.phase = 'start';
+        session.selectedStreamId = null;
+        session.state = null;
+        render();
+      },
+    });
+  }
+
+  return renderPlayingScreens();
+}
+
 function render() {
-  const screens =
-    session.phase === 'start'
-      ? renderStartScreen({
-          selectedArchetypeId: session.selectedArchetypeId,
-          onSelect: (archetypeId) => {
-            session.selectedArchetypeId = archetypeId;
-            render();
-          },
-          onStart: (archetypeId) => startRun(randomSeed(), archetypeId),
-        })
-      : session.phase === 'election'
-        ? renderEndScreen({
-            outcome: session.outcome,
-            startingAxes: session.startingAxes,
-            onRestart: () => {
-              session.phase = 'start';
-              session.selectedArchetypeId = null;
-              render();
-            },
-          })
-        : renderPlayingScreens();
+  const screens = screenForPhase();
 
   const children = [screens];
 
@@ -303,7 +394,7 @@ function render() {
         onToggle: (isOpen) => {
           session.isDebugOpen = isOpen;
         },
-        onReplaySeed: (seed) => startRun(seed, session.state.archetype),
+        onReplaySeed: (seed) => startRun(seed, session.state.stream),
         onForceCard: (cardId) => {
           session.forcedCardId = cardId;
           session.phase = 'turn';

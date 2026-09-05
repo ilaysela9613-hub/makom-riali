@@ -46,7 +46,7 @@ export default [
       },
       {
         label: 'להישאר בתוך כללי התדריך ולא להגיב',
-        certainText: 'שום דבר לא זז. גם לא לטובה.',
+        abstainText: 'שום דבר לא זז. גם לא לטובה.',
         capital: { credibility: +4, popularity: -3 },
       },
     ],
@@ -65,13 +65,23 @@ export default [
     options: [
       {
         label: 'לכתוב טור מדוד על העלות למעסיקים',
-        certainText: 'צעירים ומשרתי מילואים עוברים אליך · מחיר קטן בסיעה',
-        capital: { popularity: +4, party_standing: -2 },
-        segments: { young_reservists: +1.4 },
+        branches: [
+          {
+            chance: 70,
+            text: 'צעירים ומשרתי מילואים עוברים אליך · מחיר קטן בסיעה',
+            capital: { popularity: +4, party_standing: -2 },
+            segments: { young_reservists: +1.4 },
+          },
+          {
+            chance: 30,
+            text: '',
+            capital: { party_standing: -2 },
+          },
+        ],
       },
       {
         label: 'לוותר על הטור',
-        certainText: 'ללא השפעה',
+        abstainText: 'ללא השפעה',
         capital: { credibility: +1 },
       },
       {
@@ -103,23 +113,43 @@ export default [
     camp: 'right',
     placeholder: true,
 
-    title: 'תוספת תקציב ביטחון',
+    title: 'תוספת למערכת הביטחון',
     text: 'האוצר מתנגד לתוספת. מערכת הביטחון מבקשת אותה. שניהם מבקשים ממך להצביע בבוקר.',
 
     options: [
       {
         label: 'לתמוך בתוספת',
-        certainText: 'ציוני־דתי עובר אליך · הפריפריה זוכרת מה לא קיבלה',
-        stance: { axis: 'security', direction: +1 },
-        axes: { security: +0.06 },
-        capital: { party_standing: +5, credibility: -3 },
-        segments: { religious_zionist: +1.1, periphery_general: -0.9 },
+        branches: [
+          {
+            chance: 75,
+            text: 'ציוני־דתי עובר אליך · הפריפריה זוכרת מה לא קיבלה',
+            axes: { security: +0.06 },
+            capital: { party_standing: +5, credibility: -3 },
+            segments: { religious_zionist: +1.1, periphery_general: -0.9 },
+          },
+          {
+            chance: 25,
+            text: '',
+            axes: { security: +0.06 },
+            capital: { credibility: -3 },
+            segments: { periphery_general: -0.9 },
+          },
+        ],
       },
       {
         label: 'להתנות את התמיכה בקיצוץ מקביל',
-        certainText: 'אף צד לא מקבל מה שרצה · מחיר במעמד בסיעה',
-        stance: { axis: 'security', direction: -1 },
-        capital: { credibility: +5, party_standing: -4 },
+        branches: [
+          {
+            chance: 55,
+            text: 'אף צד לא מקבל מה שרצה · מחיר במעמד בסיעה',
+            capital: { credibility: +5, party_standing: -4 },
+          },
+          {
+            chance: 45,
+            text: 'שני הצדדים עקפו אותך',
+            capital: { party_standing: -4 },
+          },
+        ],
       },
     ],
   },
@@ -142,10 +172,22 @@ export default [
     options: [
       {
         label: 'לקבל את המקום ולהתיישר עם הסיעה',
-        certainText: 'קפיצה במעמד בסיעה · הצעירים מוחקים אותך',
-        axes: { security: +0.06 },
-        capital: { party_standing: +9, credibility: -4 },
-        segments: { young_reservists: -1.2 },
+        branches: [
+          {
+            chance: 80,
+            text: 'קפיצה במעמד בסיעה · הצעירים מוחקים אותך',
+            axes: { security: +0.06 },
+            capital: { party_standing: +9, credibility: -4 },
+            segments: { young_reservists: -1.2 },
+          },
+          {
+            chance: 20,
+            text: '',
+            axes: { security: +0.06 },
+            capital: { credibility: -4 },
+            segments: { young_reservists: -1.2 },
+          },
+        ],
       },
       {
         label: 'לקבל, ולהבהיר מראש שתצביע לפי עמדתך',
@@ -164,7 +206,7 @@ export default [
       },
       {
         label: 'לסרב ולהישאר בלי מחויבות',
-        certainText: 'קו עצמאי נשמר · ויתרת על במה מרכזית',
+        abstainText: 'קו עצמאי נשמר · ויתרת על במה מרכזית',
         capital: { credibility: +4, party_standing: -6 },
         segments: { secular_center: +0.6 },
       },
@@ -184,14 +226,34 @@ export default [
     options: [
       {
         label: 'לדרוש ועדת בדיקה',
-        certainText: 'הפריפריה זוקפת לך את זה · עולה זמן וכסף',
-        capital: { popularity: +4, resources: -3 },
-        segments: { periphery_general: +1.3 },
+        branches: [
+          {
+            chance: 60,
+            text: 'הפריפריה זוקפת לך את זה · מסבך אותך מול הדרג המקצועי',
+            capital: { popularity: +4, party_standing: -3 },
+            segments: { periphery_general: +1.3 },
+          },
+          {
+            chance: 40,
+            text: 'הוועדה נקברה בוועדת משנה',
+            capital: { party_standing: -3 },
+          },
+        ],
       },
       {
         label: 'לטפל בזה מול המשרד בלי רעש',
-        certainText: 'הבעיה נפתרה · אף אחד לא יודע שזה אתה',
-        capital: { credibility: +3, popularity: -2 },
+        branches: [
+          {
+            chance: 70,
+            text: 'הבעיה נפתרה · אף אחד לא יודע שזה אתה',
+            capital: { credibility: +3, popularity: -2 },
+          },
+          {
+            chance: 30,
+            text: '',
+            capital: { popularity: -2 },
+          },
+        ],
       },
     ],
   },

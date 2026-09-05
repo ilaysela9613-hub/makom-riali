@@ -15,10 +15,31 @@ export function inParty(partyName) {
   return partyName.startsWith('ה') ? `ב${partyName.slice(1)}` : `ב${partyName}`;
 }
 
-/** The one legible score, as a whole line. SPEC §1. */
-export function slotLine(slot, partyName) {
+/**
+ * The one legible score, as a whole line. SPEC §1.
+ *
+ * A slot on a list you actually hold and a slot you are merely WORTH somewhere
+ * are different facts, and the line has to say which it is. Presenting a
+ * prospect in the same words as a holding tells the player they are on a list
+ * they have never joined.
+ */
+export function slotLine(slot, partyName, { isHeld }) {
   if (slot === null || !partyName) return 'עדיין אין לך מקום ברשימה';
-  return `${slot} ${inParty(partyName)}`;
+  if (isHeld) return `${slot} ${inParty(partyName)}`;
+  return `${slot} ${inParty(partyName)} · עדיין לא שלך`;
+}
+
+/**
+ * The slot line with the popularity band hung off it, separated by a middle dot.
+ * The slot is the anchor and popularity is the modifier — one element, never a
+ * second row.
+ *
+ * With no list of your own there is no slot to anchor to, so the band stands
+ * alone and the dot goes with the thing it was separating.
+ */
+export function slotWithBand(slotText, bandLabel, { hasParty }) {
+  if (!hasParty) return bandLabel;
+  return `${slotText} · ${bandLabel}`;
 }
 
 export function slotChangeLine(previousSlot, nextSlot, partyName) {
@@ -55,7 +76,6 @@ export function seatChangeLine(previousSeats, nextSeats) {
 const CAPITAL_LINES = {
   popularity: ['ירדת מהכותרות', 'הפכת מוכר יותר'],
   party_standing: ['נחלשת בתוך הסיעה', 'התחזקת בתוך הסיעה'],
-  resources: ['הקופה התרוקנה קצת', 'גייסת משאבים'],
 };
 
 export const NARRATABLE_CAPITAL = Object.keys(CAPITAL_LINES);
@@ -69,9 +89,35 @@ export function capitalMovementLine(capitalKey, direction) {
 /** Shown when a turn genuinely moved nothing worth naming. */
 export const QUIET_BEAT_LINE = 'שום דבר לא זז מספיק כדי שמישהו ישים לב.';
 
+/**
+ * The four ideology axes in Hebrew. They live here rather than in the UI because
+ * §8.2 keeps every player-facing string in data/ — the drift chart and the
+ * patron screen both read from this one place.
+ */
+export const AXIS_NAMES = {
+  security: 'ביטחון',
+  religion: 'דת ומדינה',
+  economy: 'כלכלה',
+  rule_of_law: 'שלטון חוק',
+};
+
+/** The two poles of each axis, for the drift chart. */
+export const AXIS_POLES = {
+  security: ['מדיני / פשרה', 'ביטחוני / נץ'],
+  religion: ['הפרדת דת ומדינה', 'סטטוס קוו דתי'],
+  economy: ['סוציאל־דמוקרטי', 'שוק חופשי'],
+  rule_of_law: ['חיזוק ביקורת שיפוטית', 'חיזוק הרשות המחוקקת'],
+};
+
+/** The drift chart's caption, with the band the run finished on. */
+export function driftCaption(bandLabel) {
+  return `אפור — נקודת הפתיחה · כחול — איפה סיימת · סיימת ${bandLabel}`;
+}
+
 export const BEAT_LABELS = {
   whatMoved: 'מה זז',
   yourSlot: 'מקום ריאלי',
+  bestProspect: 'מקום ריאלי · הכי טוב שאתה שווה',
   fullTable: 'כל המפלגות',
   blocs: 'מחנות · תמיכה',
   blocsAffinity: 'מחנות · היחס אליך',

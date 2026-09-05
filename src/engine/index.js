@@ -21,7 +21,14 @@ export { poll, runElection } from './election.js';
 // ---------------------------------------------------------------------------
 
 export { endTurn } from './cards.js';
-export { isRunOver, earlyEnding, cloneRun, actForTurn, playerPartyId } from './state.js';
+export {
+  isRunOver,
+  earlyEnding,
+  cloneRun,
+  actForTurn,
+  playerPartyId,
+  popularityBand,
+} from './state.js';
 
 // ---------------------------------------------------------------------------
 // Own party — M4 fills these out; the shapes are here now because election.js
@@ -80,7 +87,8 @@ export {
   trailingCampStreak,
   isGamble,
   branchValence,
-  resolveBranch,
+  classifyBranches,
+  branchForRoll,
   endsRunCause,
 } from './cards.js';
 export { createRng } from './rng.js';
@@ -91,13 +99,11 @@ export { createRng } from './rng.js';
 
 export {
   applyStance,
-  applyIntegrity,
   applyIntegrityConsequences,
   declaredStance,
   isFlip,
   segmentsPunishing,
   defectionDeltas,
-  INTEGRITY_VALUES,
   DEFECTION_REASONS,
 } from './credibility.js';
 

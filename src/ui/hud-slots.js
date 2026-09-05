@@ -8,31 +8,43 @@
 // The player never sees the capital meters underneath. They see the number
 // those meters produce.
 
-import { slotTable } from '../engine/index.js';
+import { slotTable, popularityBand } from '../engine/index.js';
 import PARTIES from '../data/parties.js';
-import { SLOT_HUD_ROW_LIMIT } from '../data/tuning.js';
-import { slotLine, BEAT_LABELS } from '../data/feedback.js';
+import { SLOT_HUD_ROW_LIMIT, POPULARITY_BAND_ANIMATION_MS } from '../data/tuning.js';
+import { slotLine, slotWithBand, BEAT_LABELS } from '../data/feedback.js';
 import { div, element, span } from './dom.js';
 
 /**
- * The single best slot on the board: the party the player is on if they are on
- * one, otherwise the best reachable offer-worthy row.
+ * The single slot line: the list the player is actually on, or — if they are on
+ * none — the best prospect currently open to them.
  *
- * @returns {{ slot: number, partyId: string, partyName: string,
- *             projectedSeats: number, reachable: boolean } | null}
+ * "Best" is the widest MARGIN between the slot and the list's projected seats,
+ * not the lowest slot number. Slot 3 on a four-seat list is one bad week from
+ * worthless; slot 9 on a sixteen-seat list is a career. Ranking by slot number
+ * alone always surfaced the smallest lists on the board.
+ *
+ * @returns {{ slot, partyId, partyName, projectedSeats, isHeld } | null}
  */
 export function bestSlotRow(state) {
   const rows = slotTable(state);
+
   const current = rows.find((row) => row.isCurrentParty);
-  if (current) return decorate(current);
+  if (current) return decorate(current, true);
 
   const reachable = rows.filter((row) => row.reachable && !row.declined);
   if (reachable.length === 0) return null;
-  return decorate(reachable.reduce((best, row) => (row.slot < best.slot ? row : best)));
+
+  const best = reachable.reduce((chosen, row) => {
+    const margin = row.projectedSeats - row.slot;
+    const chosenMargin = chosen.projectedSeats - chosen.slot;
+    if (margin !== chosenMargin) return margin > chosenMargin ? row : chosen;
+    return row.offerChance > chosen.offerChance ? row : chosen;
+  });
+  return decorate(best, false);
 }
 
-function decorate(row) {
-  return { ...row, partyName: PARTIES[row.partyId]?.name ?? row.partyId };
+function decorate(row, isHeld) {
+  return { ...row, isHeld, partyName: PARTIES[row.partyId]?.name ?? row.partyId };
 }
 
 /** The rows worth showing once the player opens the full table. */
@@ -88,18 +100,33 @@ function fullTable(state) {
  * @param {Function} onToggleTable
  * @param {boolean} hasChanged   highlights the line when the slot just moved
  */
-export function renderSlotHud(state, { isTableOpen, onToggleTable, hasChanged = false }) {
+export function renderSlotHud(state, { isTableOpen, onToggleTable, hasChanged = false, bandChanged = false }) {
   const best = bestSlotRow(state);
+  const band = popularityBand(state);
+  const hasParty = Boolean(state.party || state.ownParty);
+
+  const slotText = best
+    ? slotLine(best.slot, best.partyName, { isHeld: best.isHeld })
+    : slotLine(null, null, { isHeld: false });
 
   const panel = element(
     'details',
-    { className: `panel slot-panel${hasChanged ? ' slot-panel--changed' : ''}`, ...(isTableOpen ? { open: true } : {}) },
+    {
+      className: `panel slot-panel${hasChanged ? ' slot-panel--changed' : ''}`,
+      style: `--band-animation-ms: ${POPULARITY_BAND_ANIMATION_MS}ms`,
+      ...(isTableOpen ? { open: true } : {}),
+    },
     [
       element('summary', { className: 'slot-summary' }, [
-        span({ className: 'section-label', text: BEAT_LABELS.yourSlot }),
         span({
-          className: 'slot-summary__value',
-          text: best ? slotLine(best.slot, best.partyName) : slotLine(null, null),
+          className: 'section-label',
+          text: best?.isHeld ? BEAT_LABELS.yourSlot : BEAT_LABELS.bestProspect,
+        }),
+        span({
+          className:
+            `slot-summary__value${best && !best.isHeld ? ' slot-summary__value--prospect' : ''}` +
+            `${bandChanged ? ' slot-summary__value--band-changed' : ''}`,
+          text: slotWithBand(slotText, band.label, { hasParty }),
         }),
         span({ className: 'slot-summary__hint', text: BEAT_LABELS.fullTable }),
       ]),

@@ -51,8 +51,17 @@ export default [
       {
         label: 'להתיישר עם הדרישה',
         patronBetrayal: 'accept',
-        certainText: 'הפטרון נשאר · מי שהאמין למה שהצהרת יראה בדיוק מה קרה',
-        capital: { party_standing: +6 },
+        branches: [
+          {
+            chance: 80,
+            text: 'הפטרון נשאר · מי שהאמין למה שהצהרת יראה בדיוק מה קרה',
+            capital: { party_standing: +6 },
+          },
+          {
+            chance: 20,
+            text: '',
+          },
+        ],
       },
       {
         label: 'לסרב ולהישאר עם מה שאמרת',
@@ -61,7 +70,7 @@ export default [
           {
             chance: BRANCH_CHANCE_TOTAL - FAKE_NEWS_BRANCH_CHANCE,
             text: 'איבדת אותו ואת מה שהוא החזיק · שרדת את השבוע',
-            capital: { popularity: -6, resources: -8 },
+            capital: { popularity: -6, party_standing: -8 },
             segments: { secular_center: +0.9 },
           },
           {
